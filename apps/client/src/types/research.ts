@@ -31,7 +31,8 @@ export interface Finding {
   session_id: string;
   title: string;
   summary: string;
-  source_ids: string[]; // source ids (as strings) supporting this finding
+  detail: string;
+  source_ids: string[];
 }
 
 export interface ResearchGap {

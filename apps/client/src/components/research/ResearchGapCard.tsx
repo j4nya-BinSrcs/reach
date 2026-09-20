@@ -74,7 +74,7 @@ export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
         {gap.title}
       </h3>
 
-      {/* Description — always visible */}
+      {/* Description — always visible as the rationale */}
       <p
         style={{
           fontSize: '0.875rem',
@@ -85,7 +85,7 @@ export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
         {gap.description}
       </p>
 
-      {/* Expandable caveat */}
+      {/* Expandable evidence */}
       <div
         style={{
           maxHeight: expanded ? '600px' : '0',
@@ -95,7 +95,7 @@ export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
       >
         <p
           style={{
-            fontSize: '0.75rem',
+            fontSize: '0.8125rem',
             color: 'var(--text-subtle)',
             lineHeight: 1.5,
             borderTop: expanded ? '1px solid rgba(232,168,76,0.1)' : 'none',
@@ -103,7 +103,7 @@ export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
             fontStyle: 'italic',
           }}
         >
-          This question was not conclusively answered by the collected sources.
+          This question remains open based on the sources collected so far.
         </p>
       </div>
 

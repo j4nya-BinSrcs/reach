@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ResearchSession } from '../../types/research';
 import { formatRelativeTime } from '../../lib/utils';
 
@@ -11,6 +12,7 @@ export function ResearchHeader({ session, running = false }: ResearchHeaderProps
   const queryCount   = session.queries.length;
   const findingCount = session.findings.length;
   const gapCount     = session.gaps.length;
+  const [queriesVisible, setQueriesVisible] = useState(false);
 
   return (
     <header
@@ -137,40 +139,64 @@ export function ResearchHeader({ session, running = false }: ResearchHeaderProps
         </span>
       </div>
 
-      {/* Generated queries dropdown */}
+      {/* Generated queries — slide-down */}
       {session.queries.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
-          <label
-            htmlFor="queries-select"
-            className="label"
-            style={{ marginBottom: '0.375rem', color: 'var(--text-muted)' }}
-          >
-            Generated queries ({session.queries.length})
-          </label>
-          <select
-            id="queries-select"
-            multiple
+          <button
+            onClick={() => setQueriesVisible((v) => !v)}
+            aria-expanded={queriesVisible}
             style={{
-              width: '100%',
-              maxWidth: '480px',
-              minHeight: '72px',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-muted)',
               fontSize: '0.75rem',
-              fontFamily: 'JetBrains Mono, monospace',
-              padding: '0.5rem 0.625rem',
-              outline: 'none',
+              color: 'var(--accent)',
+              background: 'none',
+              border: 'none',
               cursor: 'pointer',
+              padding: 0,
+              fontFamily: 'inherit',
+              transition: 'color 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.color = 'var(--accent-bright)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.color = 'var(--accent)';
             }}
           >
-            {session.queries.map((q) => (
-              <option key={q.id} value={q.query} style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}>
-                {q.query}
-              </option>
-            ))}
-          </select>
+            {queriesVisible ? '▲ Hide queries' : `▼ Show queries (${session.queries.length})`}
+          </button>
+          <div
+            style={{
+              maxHeight: queriesVisible ? '400px' : '0',
+              overflow: 'hidden',
+              transition: 'max-height 0.35s ease',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                paddingTop: queriesVisible ? '0.75rem' : '0',
+              }}
+            >
+              {session.queries.map((q) => (
+                <span
+                  key={q.id}
+                  style={{
+                    padding: '0.3125rem 0.625rem',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}
+                >
+                  {q.query}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </header>

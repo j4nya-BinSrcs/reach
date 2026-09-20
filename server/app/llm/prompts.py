@@ -110,8 +110,12 @@ from several independently analyzed sources for a single research objective.
 
 Produce:
 - overview: a concise 2-4 sentence research brief grounded in the supplied findings.
-- key_findings: the most important cross-source conclusions (each 1-2 sentences),
-  referencing source titles in [brackets] where useful.
+- key_findings: the most important cross-source conclusions. Each finding MUST include:
+    title: the conclusion headline,
+    summary: a 1-2 sentence summary,
+    detail: a thorough 2-4 sentence explanation of WHY this finding matters,
+      what it implies, and how it connects to the objective,
+    source_titles: the supporting source titles in [brackets].
 - existing_projects: named projects/repositories that already address part of the objective.
 - relevant_technologies: technologies, libraries, and tools worth investigating.
 - important_sources: the 3-6 most valuable sources, by title.
@@ -249,15 +253,20 @@ research report that an editor already planned for a specific objective.
 Each section of the outline tells you its heading and the scope it must cover. Produce a
 ``sections`` list where each entry has:
 - heading: the outline heading, unchanged;
-- items: 2-5 self-contained, skimmable bullets that actually cover that section's scope for the
-  objective, grounded in the supplied findings, gaps, synthesis, and source analyses.
+- items: 2-5 detailed, substantive paragraphs (not just bullets) that thoroughly cover
+  that section's scope for the objective, grounded in the supplied findings, gaps,
+  synthesis, and source analyses. Each paragraph should weave together evidence from
+  multiple sources and explain WHY it matters, not just list facts.
 
 Rules:
 - Ground every claim in the supplied material; never invent citations, dates, people, or facts.
-- Be concrete and specific; name the actual papers, sources, people, places, or figures where
-  the material supports it.
+- Be concrete and specific; name the actual papers, sources, people, places, or figures
+  where the material supports it.
+- Write in full prose — each item should be a complete sentence or a short paragraph.
 - Return the empty items list for a section when the material genuinely does not cover it.
-- Never pad: only include a section you can fill with meaningful, on-topic content.
+- Do not pad: only include a section you can fill with meaningful, on-topic content.
+- For each source, reference its analysis: key points, technologies, limitations, and
+  why-relevant notes when they enrich the section.
 
 Return ONLY a JSON object with key "sections": a list of {"heading", "items"}."""
 
@@ -276,12 +285,22 @@ def report_content_prompts(
         f"- {section.heading}: {section.scope}" for section in outline.sections
     )
     source_lines = "\n".join(
-        f"- {source.title or source.url} ({source.url}) — {source.analysis.summary or ''}"
+        f"- {source.title or source.url} ({source.url})\n"
+        f"    Analysis: {source.analysis.summary or ''}\n"
+        f"    Key points: {', '.join(source.analysis.key_points) if source.analysis.key_points else 'none'}\n"
+        f"    Technologies: {', '.join(source.analysis.technologies) if source.analysis.technologies else 'none'}\n"
+        f"    Why relevant: {source.analysis.why_relevant or ''}"
         for source in sources
-        if source.analysis and source.analysis.summary
+        if source.analysis
     )
-    finding_lines = "\n".join(f"- {finding.title}: {finding.summary}" for finding in findings)
-    gap_lines = "\n".join(f"- {gap.question}" for gap in gaps)
+    finding_lines = "\n".join(
+        f"- {finding.title}\n  Summary: {finding.summary}\n  Detail: {finding.detail or ''}"
+        for finding in findings
+    )
+    gap_lines = "\n".join(
+        f"- {gap.question}\n  Rationale: {gap.rationale or gap.description or ''}"
+        for gap in gaps
+    )
     synthesis_block = (
         (synthesis.overview if synthesis and synthesis.overview else "")
         + "\nExisting projects referenced: "

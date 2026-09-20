@@ -67,6 +67,7 @@ export function normalizeFinding(raw: Record<string, unknown>): Finding {
     session_id: asString(raw['session_id']),
     title: asString(raw['title']),
     summary: asString(raw['summary']),
+    detail: asString(raw['detail']),
     source_ids: asStrings(raw['supporting_source_ids']),
   };
 }

@@ -3,15 +3,22 @@ import { SourceCard } from './SourceCard';
 
 interface SourceListProps {
   sources: Source[];
+  sessionId: string;
 }
 
-export function SourceList({ sources }: SourceListProps) {
+export function SourceList({ sources, sessionId }: SourceListProps) {
   const successCount = sources.filter((s) => s.fetch_status === 'success').length;
   const partialCount = sources.filter((s) => s.fetch_status === 'partial').length;
   const failedCount  = sources.filter((s) => s.fetch_status === 'failed').length;
 
   return (
-    <div>
+    <div
+      style={{
+        maxHeight: '520px',
+        overflowY: 'auto',
+        paddingRight: '0.25rem',
+      }}
+    >
       {/* Stats row */}
       {(partialCount > 0 || failedCount > 0) && (
         <div
@@ -54,7 +61,7 @@ export function SourceList({ sources }: SourceListProps) {
       {/* Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {sources.map((source, index) => (
-          <SourceCard key={source.id} source={source} index={index} />
+          <SourceCard key={source.id} source={source} index={index} sessionId={sessionId} />
         ))}
       </div>
     </div>

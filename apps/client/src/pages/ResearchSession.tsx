@@ -101,14 +101,14 @@ export function ResearchSession() {
   }
 
   const leftContent = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
       <ResearchHeader session={session} running={isRunning} />
       <div>
         <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>
           Sources ({session.sources.length})
         </p>
         {session.sources.length > 0 ? (
-          <SourceList sources={session.sources} />
+          <SourceList sources={session.sources} sessionId={session.id} />
         ) : (
           <CardListSkeleton count={3} />
         )}
@@ -138,14 +138,29 @@ export function ResearchSession() {
             </div>
           )}
           {session.gaps.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {session.gaps.map((gap, i) => (
-                <ResearchGapCard key={gap.id} gap={gap} index={i} />
-              ))}
-            </div>
+            <>
+              <div
+                style={{
+                  height: '1px',
+                  background: 'var(--border)',
+                  margin: '1rem 0',
+                }}
+              />
+              <p
+                className="label"
+                style={{ marginBottom: '0.75rem', color: 'var(--amber)' }}
+              >
+                Open Questions ({session.gaps.length})
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {session.gaps.map((gap, i) => (
+                  <ResearchGapCard key={gap.id} gap={gap} index={i} />
+                ))}
+              </div>
+            </>
           )}
           {session.findings.length === 0 && session.gaps.length === 0 && (
-            <EmptyState title="No findings yet" description="Findings will appear here as the research progresses." />
+            <EmptyState title="No findings yet" description="Findings and open questions will appear here as the research progresses." />
           )}
         </section>
       )}
@@ -169,17 +184,9 @@ export function ResearchSession() {
           {session.sources.filter(s => s.saved).length > 0 ? (
             <div style={{ marginBottom: '1.5rem' }}>
               <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Saved Sources</p>
-              <SourceList sources={session.sources.filter(s => s.saved)} />
+              <SourceList sources={session.sources.filter(s => s.saved)} sessionId={session.id} />
             </div>
           ) : null}
-          {session.sources.length > 0 ? (
-            <div>
-              <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>All Sources</p>
-              <SourceList sources={session.sources} />
-            </div>
-          ) : (
-            <EmptyState title="No sources" description="Sources will appear here as they are discovered." />
-          )}
         </section>
       )}
     </div>

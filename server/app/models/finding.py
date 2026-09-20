@@ -10,6 +10,7 @@ class Finding(BaseModel):
     session_id: str
     title: str
     summary: str = ""
+    detail: str = ""
     supporting_source_ids: list[int] = Field(default_factory=list)
 
 
@@ -39,6 +40,7 @@ class KeyFinding(BaseModel):
 
     title: str
     summary: str = ""
+    detail: str = ""
     source_titles: list[str] = Field(default_factory=list)
 
 

@@ -80,14 +80,21 @@ export function FindingCard({ finding, sources, index }: FindingCardProps) {
       </p>
 
       {/* Expandable detail */}
-      {referencedSources.length > 0 && (
-        <div
-          style={{
-            maxHeight: expanded ? '600px' : '0',
-            overflow: 'hidden',
-            transition: 'max-height 0.3s ease',
-          }}
-        >
+      <div
+        style={{
+          maxHeight: expanded ? '600px' : '0',
+          overflow: 'hidden',
+          transition: 'max-height 0.3s ease',
+        }}
+      >
+        {finding.detail && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text)', lineHeight: 1.7 }}>
+              {finding.detail}
+            </p>
+          </div>
+        )}
+        {referencedSources.length > 0 && (
           <div
             style={{
               display: 'flex',
@@ -117,8 +124,8 @@ export function FindingCard({ finding, sources, index }: FindingCardProps) {
               />
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Expand hint */}
       <span

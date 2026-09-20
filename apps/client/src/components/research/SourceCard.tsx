@@ -1,18 +1,33 @@
 import { useState } from 'react';
+import { Bookmark } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Source } from '../../types/source';
 import { SourceBadge } from './SourceBadge';
 import { ExternalLink } from '../common/ExternalLink';
 import { formatSourceIndex } from '../../lib/utils';
+import { updateSourceWorkspace } from '../../lib/api';
 
 interface SourceCardProps {
   source: Source;
   index: number;
+  sessionId: string;
 }
 
-export function SourceCard({ source, index }: SourceCardProps) {
+export function SourceCard({ source, index, sessionId }: SourceCardProps) {
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const isPartial = source.fetch_status === 'partial';
   const isFailed  = source.fetch_status === 'failed';
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['research-session', sessionId] });
+    queryClient.invalidateQueries({ queryKey: ['workspace', sessionId] });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: (saved: boolean) => updateSourceWorkspace(sessionId, source.id, { saved }),
+    onSuccess: refresh,
+  });
 
   return (
     <article
@@ -123,22 +138,44 @@ export function SourceCard({ source, index }: SourceCardProps) {
           </span>
         </div>
 
-        {/* Open original */}
-        <ExternalLink
-          href={source.url}
-          label={`Open ${source.title} in new tab`}
-          style={{
-            flexShrink: 0,
-            padding: '0.375rem 0.75rem',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--border)',
-            background: 'transparent',
-            fontSize: '0.75rem',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Open ↗
-        </ExternalLink>
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+          <button
+            title={source.saved ? 'Unsave source' : 'Save source'}
+            aria-label={source.saved ? 'Unsave source' : 'Save source'}
+            aria-pressed={source.saved}
+            onClick={() => saveMutation.mutate(!source.saved)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '30px',
+              height: '30px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: source.saved ? 'var(--green-dim)' : 'transparent',
+              color: source.saved ? 'var(--green)' : 'var(--text-subtle)',
+              cursor: 'pointer',
+            }}
+          >
+            <Bookmark size={14} fill={source.saved ? 'currentColor' : 'none'} aria-hidden="true" />
+          </button>
+          <ExternalLink
+            href={source.url}
+            label={`Open ${source.title} in new tab`}
+            style={{
+              flexShrink: 0,
+              padding: '0.375rem 0.75rem',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              fontSize: '0.75rem',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Open ↗
+          </ExternalLink>
+        </div>
       </div>
 
       {/* Relevance bar */}
