@@ -107,7 +107,12 @@ class ResearchService:
             await self._pipeline(session_id)
         except Exception as exc:  # noqa: BLE001
             logger.exception("research run %s failed", session_id)
-            await asyncio.to_thread(self._sessions.set_error, session_id, "Research pipeline failed unexpectedly. Please retry.")
+            message = getattr(exc, "message", "") or str(exc)
+            await asyncio.to_thread(
+                self._sessions.set_error,
+                session_id,
+                f"Research could not be completed: {message[:200]}" if message else "Research pipeline failed unexpectedly. Please retry.",
+            )
         finally:
             self._runs.pop(session_id, None)
 

@@ -4,9 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from app.models.finding import Finding, ResearchGap, ResearchSynthesis
-from app.models.research import SessionStatus, StartResearchRequest
-from app.models.source import Source, SourceAnalysis, SourceType
 from app.storage.database import init_db
 
 
