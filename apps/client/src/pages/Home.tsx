@@ -1,9 +1,22 @@
 import { ResearchInput } from '../components/research/ResearchInput';
 import { Header } from '../components/layout/Header';
+import { Footer } from '../components/layout/Footer';
 import { useResearch } from '../hooks/useResearch';
+import { useState, useEffect } from 'react';
 
 export function Home() {
   const { beginResearch, isLoading, error } = useResearch();
+  const [gridActive, setGridActive] = useState(false);
+
+  useEffect(() => {
+    const handleMouseMove = () => {
+      setGridActive(true);
+      const timeout = setTimeout(() => setGridActive(false), 500);
+      return () => clearTimeout(timeout);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   return (
     <div
@@ -15,10 +28,14 @@ export function Home() {
         transition: 'background 0.4s ease',
       }}
     >
-      {/* Ambient background */}
-      <div className="bg-atmosphere" aria-hidden="true" />
+      {/* Grid background with hover animations */}
+      <div className="bg-grid" aria-hidden="true" />
+      <div
+        className={`grid-hover-zone ${gridActive ? 'active' : ''}`}
+        aria-hidden="true"
+      />
 
-      {/* Header */}
+      {/* Persistent header */}
       <Header />
 
       {/* Main hero */}
@@ -111,48 +128,8 @@ export function Home() {
         </div>
       </main>
 
-      {/* Minimal footer */}
-      <footer
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          borderTop: '1px solid var(--border)',
-          padding: '1rem 2rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
-          © {new Date().getFullYear()} REACH
-        </span>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <a
-            href="#"
-            style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textDecoration: 'none' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-subtle)'; }}
-          >
-            Docs
-          </a>
-          <a
-            href="#"
-            style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textDecoration: 'none' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-subtle)'; }}
-          >
-            API
-          </a>
-          <a
-            href="#"
-            style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textDecoration: 'none' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-subtle)'; }}
-          >
-            Status
-          </a>
-        </div>
-      </footer>
+      {/* Persistent footer */}
+      <Footer />
     </div>
   );
 }

@@ -8,17 +8,17 @@ import { FindingCard } from '../components/research/FindingCard';
 import { ResearchGapCard } from '../components/research/ResearchGapCard';
 import { SourceComparisonPanel } from '../components/research/SourceComparisonPanel';
 import { SourceList } from '../components/research/SourceList';
-import { LoadingState } from '../components/common/LoadingState';
+import { Header } from '../components/layout/Header';
+import { Footer } from '../components/layout/Footer';
 import { ErrorState } from '../components/common/ErrorState';
 import { EmptyState } from '../components/common/EmptyState';
 import { CardListSkeleton, ReportSkeleton, SummarySkeleton } from '../components/research/WorkspaceSkeleton';
 
-type Tab = 'report' | 'findings' | 'comparisons' | 'workspace';
+type Tab = 'report' | 'findings' | 'workspace';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'report', label: 'Research Report' },
   { id: 'findings', label: 'Findings & Open Questions' },
-  { id: 'comparisons', label: 'Comparisons' },
   { id: 'workspace', label: 'Workspace' },
 ];
 
@@ -73,7 +73,7 @@ export function ResearchSession() {
   } = useResearchSession(id ?? '');
 
   useEffect(() => {
-    if (!id) navigate('/', { replace: true });
+    if (!id) navigate('/');
   }, [id, navigate]);
 
   const isRunning = !isComplete && !isFailed;
@@ -88,20 +88,35 @@ export function ResearchSession() {
   }
 
   if (isLoadingSession || !session) {
-    return <LoadingState />;
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', padding: '0 1.5rem' }}>
+          <CardListSkeleton count={3} />
+        </div>
+        <Footer />
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <ErrorState
-        title="Failed to load research session"
-        message={error instanceof Error ? error.message : 'An unexpected error occurred.'}
-      />
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <ErrorState
+          title="Failed to load research session"
+          message={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+        />
+        <Footer />
+      </div>
     );
   }
 
+  const savedSources = session.sources.filter(s => s.saved);
+  const hasSummary = !!session.summary;
+
   const leftContent = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
       <ResearchHeader session={session} running={isRunning} />
       <div>
         <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>
@@ -117,10 +132,12 @@ export function ResearchSession() {
   );
 
   const rightContent = (
-    <div style={{ flex: 1, minWidth: 0 }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
       <TabBar active={activeTab} onSwitch={setActiveTab} />
+
+      {/* Report Tab */}
       {activeTab === 'report' && (
-        <section aria-label="Research report">
+        <section aria-label="Research report" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 12rem)', paddingRight: '0.5rem' }}>
           {session.report ? (
             <ResearchReportView report={session.report} />
           ) : (
@@ -128,8 +145,10 @@ export function ResearchSession() {
           )}
         </section>
       )}
+
+      {/* Findings Tab */}
       {activeTab === 'findings' && (
-        <section aria-label="Findings and open questions">
+        <section aria-label="Findings and open questions" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 12rem)', paddingRight: '0.5rem' }}>
           {session.findings.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
               {session.findings.map((finding, i) => (
@@ -143,7 +162,7 @@ export function ResearchSession() {
                 style={{
                   height: '1px',
                   background: 'var(--border)',
-                  margin: '1rem 0',
+                  margin: '1.5rem 0',
                 }}
               />
               <p
@@ -164,29 +183,85 @@ export function ResearchSession() {
           )}
         </section>
       )}
-      {activeTab === 'comparisons' && (
-        <section aria-label="Source comparisons">
-          <SourceComparisonPanel
-            sessionId={session.id}
-            sources={session.sources}
-            enabled={session.sources.length >= 2}
-          />
-        </section>
-      )}
+
+      {/* Workspace Tab */}
       {activeTab === 'workspace' && (
-        <section aria-label="Workspace">
-          {session.summary && (
-            <div style={{ marginBottom: '1.5rem' }}>
+        <section aria-label="Workspace" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 12rem)', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Summary */}
+          {hasSummary ? (
+            <div>
+              <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Summary</p>
+              <div
+                style={{
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  padding: '1.25rem 1.5rem',
+                }}
+              >
+                <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+                  {hasSummary && session.summary ? session.summary.overview : ''}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginBottom: '0.5rem' }}>
               <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Summary</p>
               <SummarySkeleton />
             </div>
           )}
-          {session.sources.filter(s => s.saved).length > 0 ? (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Saved Sources</p>
-              <SourceList sources={session.sources.filter(s => s.saved)} sessionId={session.id} />
+
+          {/* Saved Sources */}
+          {savedSources.length > 0 && (
+            <div>
+              <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Saved Sources ({savedSources.length})</p>
+              <SourceList sources={savedSources} sessionId={session.id} />
             </div>
-          ) : null}
+          )}
+
+          {/* Notes */}
+          <div>
+            <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Session Notes</p>
+            <div
+              style={{
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                padding: '1.25rem 1.5rem',
+              }}
+            >
+              <textarea
+                placeholder="Add notes about this research session..."
+                defaultValue=""
+                style={{
+                  width: '100%',
+                  minHeight: '100px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text)',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.6,
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Comparison moved to workspace */}
+          <div>
+            <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Source Comparison</p>
+            {session.sources.length >= 2 ? (
+              <SourceComparisonPanel
+                sessionId={session.id}
+                sources={session.sources}
+                enabled={true}
+              />
+            ) : (
+              <EmptyState title="Need 2+ sources" description="Compare sources to find similarities, differences, and contradictions." />
+            )}
+          </div>
         </section>
       )}
     </div>
@@ -201,24 +276,37 @@ export function ResearchSession() {
         flexDirection: 'column',
       }}
     >
+      <div className="bg-grid" aria-hidden="true" />
+
+      {/* Persistent header */}
+      <Header />
+
+      {/* Main content area */}
       <div
         style={{
+          flex: 1,
           display: 'flex',
           maxWidth: '1400px',
           margin: '0 auto',
           width: '100%',
-          padding: '2rem 1.5rem 4rem',
+          padding: '5.5rem 1.5rem 3rem',
           gap: '2rem',
-          flex: 1,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
-        {/* Left partition: session info + sources */}
-        <div style={{ width: '340px', flexShrink: 0 }}>
+        {/* Left partition: 40% */}
+        <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
           {leftContent}
         </div>
-        {/* Right partition: tabs */}
-        {rightContent}
+        {/* Right partition: 60% */}
+        <div style={{ flex: '0 0 60%', minWidth: 0 }}>
+          {rightContent}
+        </div>
       </div>
+
+      {/* Persistent footer */}
+      <Footer />
     </div>
   );
 }

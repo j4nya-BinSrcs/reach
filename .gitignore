@@ -40,3 +40,11 @@ Thumbs.db
 .idea/
 .vscode/
 !.vscode/settings.json
+# Impeccable install artifacts
+.agent/
+.agents/
+.claude/
+.cursor/
+.gemini/
+.pi/
+.opencode/

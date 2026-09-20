@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bookmark } from 'lucide-react';
+import { Bookmark, ArrowUpRight } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Source } from '../../types/source';
 import { SourceBadge } from './SourceBadge';
@@ -35,10 +35,10 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
       className="animate-fade-in"
       style={{
         padding: '1.25rem 1.5rem',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--border)',
         background: 'var(--surface)',
-        transition: 'border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease',
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
         animationDelay: `${index * 50}ms`,
         display: 'flex',
         flexDirection: 'column',
@@ -48,97 +48,43 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
       tabIndex={0}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLElement;
-        el.style.borderColor = 'var(--border-strong)';
-        el.style.boxShadow = '0 2px 12px rgba(0,0,0,0.2)';
+        el.style.borderColor = 'rgba(232,185,49,0.3)';
+        el.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+        el.style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLElement;
         el.style.borderColor = 'var(--border)';
         el.style.boxShadow = 'none';
-      }}
-      onFocus={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.35)';
-      }}
-      onBlur={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+        el.style.transform = 'translateY(0)';
       }}
     >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <SourceBadge type={source.type} size="sm" />
-            <span
-              style={{
-                fontSize: '0.6875rem',
-                fontFamily: 'JetBrains Mono, monospace',
-                color: 'var(--text-subtle)',
-              }}
-              aria-label={`Source ${index + 1}`}
-            >
+            <span style={{ fontSize: '0.6875rem', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-subtle)' }}>
               [{formatSourceIndex(index)}]
             </span>
             {isPartial && (
-              <span
-                style={{
-                  fontSize: '0.625rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--amber)',
-                  background: 'var(--amber-dim)',
-                  border: '1px solid rgba(232,168,76,0.2)',
-                  borderRadius: 'var(--radius-xs)',
-                  padding: '0.125rem 0.375rem',
-                }}
-                aria-label="Partially retrieved"
-              >
+              <span style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--amber)', background: 'var(--amber-dim)', borderRadius: 'var(--radius-xs)', padding: '0.125rem 0.375rem' }}>
                 Partial
               </span>
             )}
             {isFailed && (
-              <span
-                style={{
-                  fontSize: '0.625rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--red)',
-                  background: 'var(--red-dim)',
-                  border: '1px solid rgba(232,92,92,0.2)',
-                  borderRadius: 'var(--radius-xs)',
-                  padding: '0.125rem 0.375rem',
-                }}
-                aria-label="Could not retrieve"
-              >
+              <span style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--red)', background: 'var(--red-dim)', borderRadius: 'var(--radius-xs)', padding: '0.125rem 0.375rem' }}>
                 Unavailable
               </span>
             )}
           </div>
-
-          {/* Title */}
-          <h3
-            style={{
-              fontSize: '0.9375rem',
-              fontWeight: 600,
-              color: 'var(--text)',
-              letterSpacing: '-0.01em',
-              lineHeight: 1.35,
-            }}
-          >
+          <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.01em', lineHeight: 1.35 }}>
             {source.title}
           </h3>
-
-          {/* Domain */}
-          <span
-            className="mono-text"
-            style={{ color: 'var(--text-subtle)', fontSize: '0.75rem' }}
-          >
+          <span style={{ fontSize: '0.75rem', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-subtle)' }}>
             {source.domain}
           </span>
         </div>
-
-        {/* Actions */}
         <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
           <button
             title={source.saved ? 'Unsave source' : 'Save source'}
@@ -146,225 +92,80 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
             aria-pressed={source.saved}
             onClick={() => saveMutation.mutate(!source.saved)}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '30px',
-              height: '30px',
-              borderRadius: 'var(--radius-sm)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: '30px', height: '30px', borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
-              background: source.saved ? 'var(--green-dim)' : 'transparent',
-              color: source.saved ? 'var(--green)' : 'var(--text-subtle)',
+              background: source.saved ? 'var(--amber-dim)' : 'transparent',
+              color: source.saved ? 'var(--amber)' : 'var(--text-subtle)',
               cursor: 'pointer',
             }}
           >
             <Bookmark size={14} fill={source.saved ? 'currentColor' : 'none'} aria-hidden="true" />
           </button>
-          <ExternalLink
-            href={source.url}
-            label={`Open ${source.title} in new tab`}
-            style={{
-              flexShrink: 0,
-              padding: '0.375rem 0.75rem',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)',
-              background: 'transparent',
-              fontSize: '0.75rem',
-              whiteSpace: 'nowrap',
-            }}
+          <ExternalLink href={source.url} label={`Open ${source.title} in new tab`}
+            style={{ flexShrink: 0, padding: '0.375rem 0.625rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'transparent', fontSize: '0.75rem' }}
           >
-            Open ↗
+            <ArrowUpRight size={12} style={{ display: 'inline', marginRight: '0.25rem' }} />
+            Open
           </ExternalLink>
         </div>
       </div>
 
-      {/* Relevance bar */}
-      <div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '0.375rem',
-          }}
-        >
-          <span className="label" style={{ color: 'var(--text-subtle)' }}>
-            Relevance
-          </span>
-          <span
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              fontFamily: 'JetBrains Mono, monospace',
-              color: source.relevance >= 80 ? 'var(--green)' : source.relevance >= 60 ? 'var(--amber)' : 'var(--text-muted)',
-            }}
-          >
-            {source.relevance}%
-          </span>
-        </div>
-        <div
-          role="meter"
-          aria-valuenow={source.relevance}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`Relevance: ${source.relevance}%`}
-          style={{
-            height: '3px',
-            background: 'var(--surface-elevated)',
-            borderRadius: '2px',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${source.relevance}%`,
-              background:
-                source.relevance >= 80
-                  ? 'var(--green)'
-                  : source.relevance >= 60
-                  ? 'var(--amber)'
-                  : 'var(--text-muted)',
-              borderRadius: '2px',
-              transition: 'width 0.6s ease',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Analysis */}
+      {/* Analysis preview */}
       {source.analysis ? (
         <>
-          <div>
-            <p className="label" style={{ marginBottom: '0.375rem' }}>
-              Why relevant
-            </p>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-              {source.analysis.why_relevant}
-            </p>
-          </div>
-
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.65 }}>
+            {source.analysis.summary}
+          </p>
           <button
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             style={{
-              alignSelf: 'flex-start',
-              fontSize: '0.75rem',
-              color: 'var(--accent)',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              fontFamily: 'inherit',
+              alignSelf: 'flex-start', fontSize: '0.75rem', color: 'var(--accent)',
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit',
               transition: 'color 0.15s ease',
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--accent-bright)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--accent)';
-            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--accent-bright)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
           >
-            {expanded ? '↑ Show less' : '↓ Show more'}
+            {expanded ? 'Show less details' : 'Show analysis details'}
           </button>
-
           {expanded && (
-            <div
-              className="animate-fade-in stagger-children"
-              style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
-            >
+            <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <p className="label" style={{ marginBottom: '0.375rem' }}>Summary</p>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-                  {source.analysis.summary}
-                </p>
+                <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginBottom: '0.375rem' }}>Why relevant</p>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.65 }}>{source.analysis.why_relevant}</p>
               </div>
-
               {source.analysis.key_points.length > 0 && (
                 <div>
-                  <p className="label" style={{ marginBottom: '0.5rem' }}>Key points</p>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginBottom: '0.5rem' }}>Key points</p>
                   <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                     {source.analysis.key_points.map((point, i) => (
-                      <li
-                        key={i}
-                        style={{
-                          display: 'flex',
-                          gap: '0.625rem',
-                          fontSize: '0.875rem',
-                          color: 'var(--text-muted)',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            marginTop: '0.5rem',
-                            width: '4px',
-                            height: '4px',
-                            borderRadius: '50%',
-                            background: 'var(--accent)',
-                            flexShrink: 0,
-                          }}
-                        />
+                      <li key={i} style={{ display: 'flex', gap: '0.625rem', fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                        <span aria-hidden="true" style={{ marginTop: '0.5rem', width: '4px', height: '4px', borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                         {point}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
-
               {source.analysis.technologies.length > 0 && (
                 <div>
-                  <p className="label" style={{ marginBottom: '0.375rem' }}>Technologies</p>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginBottom: '0.375rem' }}>Technologies</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
                     {source.analysis.technologies.map((t) => (
-                      <span
-                        key={t}
-                        style={{
-                          padding: '0.1875rem 0.5rem',
-                          borderRadius: 'var(--radius-xs)',
-                          background: 'var(--surface-elevated)',
-                          border: '1px solid var(--border)',
-                          fontSize: '0.6875rem',
-                          fontFamily: 'JetBrains Mono, monospace',
-                          color: 'var(--text-muted)',
-                        }}
-                      >
-                        {t}
-                      </span>
+                      <span key={t} style={{ padding: '0.1875rem 0.5rem', borderRadius: 'var(--radius-xs)', background: 'var(--surface-elevated)', border: '1px solid var(--border)', fontSize: '0.6875rem', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-muted)' }}>{t}</span>
                     ))}
                   </div>
                 </div>
               )}
-
               {source.analysis.limitations.length > 0 && (
                 <div>
-                  <p className="label" style={{ marginBottom: '0.375rem', color: 'var(--amber)' }}>
-                    Limitations
-                  </p>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--amber)', marginBottom: '0.375rem' }}>Limitations</p>
                   <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                     {source.analysis.limitations.map((lim, i) => (
-                      <li
-                        key={i}
-                        style={{
-                          display: 'flex',
-                          gap: '0.625rem',
-                          fontSize: '0.875rem',
-                          color: 'var(--text-muted)',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            marginTop: '0.5rem',
-                            width: '4px',
-                            height: '4px',
-                            borderRadius: '50%',
-                            background: 'var(--amber)',
-                            flexShrink: 0,
-                          }}
-                        />
+                      <li key={i} style={{ display: 'flex', gap: '0.625rem', fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                        <span aria-hidden="true" style={{ marginTop: '0.5rem', width: '4px', height: '4px', borderRadius: '50%', background: 'var(--amber)', flexShrink: 0 }} />
                         {lim}
                       </li>
                     ))}

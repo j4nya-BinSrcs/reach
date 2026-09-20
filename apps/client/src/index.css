@@ -18,11 +18,11 @@
   --text:            #f0ede8;
   --text-muted:      #6b6b78;
   --text-subtle:     #3d3d47;
-  --accent:          #4f8ef7;
-  --accent-dim:      rgba(79, 142, 247, 0.12);
-  --accent-bright:   #6ba3ff;
-  --amber:           #e8a84c;
-  --amber-dim:       rgba(232, 168, 76, 0.12);
+  --accent:          #e8b931;
+  --accent-dim:      rgba(232, 185, 49, 0.12);
+  --accent-bright:   #f5d060;
+  --amber:           #d4941c;
+  --amber-dim:       rgba(212, 148, 28, 0.12);
   --green:           #4caf82;
   --green-dim:       rgba(76, 175, 130, 0.12);
   --red:             #e85c5c;
@@ -54,7 +54,7 @@
   --text:            #1a1a1e;
   --text-muted:      #6b6b78;
   --text-subtle:     #9a9aa4;
-  --accent-dim:      rgba(79, 142, 247, 0.1);
+  --accent-dim:      rgba(232, 185, 49, 0.1);
 }
 
 /* ── Base Reset ── */
@@ -120,7 +120,10 @@ code, .mono {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ── Focus ── */
@@ -137,30 +140,66 @@ code, .mono {
 }
 
 /* ────────────────────────────────────────────────────────
-   Utility Classes
-   ──────────────────────────────────────────────────────── */
+    Grid Background with Hover Animations
+    ──────────────────────────────────────────────────────── */
 
-/* Label / eyebrow text */
-.label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+@keyframes grid-glow {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50%      { opacity: 0.15; transform: scale(1.05); }
 }
 
-/* Mono text */
-.mono-text {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
 }
 
-/* Divider */
-.divider {
-  height: 1px;
-  background: var(--border);
-  width: 100%;
+.bg-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(232, 185, 49, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 185, 49, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: grid-glow 8s ease-in-out infinite;
+}
+
+.bg-grid::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 400px;
+  height: 400px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(232, 185, 49, 0.06) 0%, transparent 70%);
+  animation: grid-glow 6s ease-in-out infinite;
+}
+
+.grid-hover-zone {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.grid-hover-zone::before {
+  content: "";
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(232, 185, 49, 0.08) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+.grid-hover-zone.active::before {
+  opacity: 1;
 }
 
 /* ────────────────────────────────────────────────────────
