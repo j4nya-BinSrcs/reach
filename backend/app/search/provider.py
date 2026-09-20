@@ -6,7 +6,6 @@ run without any API keys (``REACH_MOCK_MODE=mock``).
 """
 
 import logging
-from typing import Any
 
 import httpx
 

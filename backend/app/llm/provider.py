@@ -8,9 +8,9 @@ results so the pipeline and tests run without any API keys.
 import logging
 from typing import Any
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
 
-from app.llm.base import LLMProvider, LLMError, parse_structured_output
+from app.llm.base import LLMProvider, LLMError
 
 logger = logging.getLogger(__name__)
 

@@ -10,14 +10,7 @@ import logging
 
 from app.llm.base import LLMProvider
 from app.llm.prompts import synthesis_prompts
-from app.models.finding import (
-    Finding,
-    KeyFinding,
-    OpenQuestion,
-    ResearchGap,
-    ResearchSynthesis,
-    SynthesisResult,
-)
+from app.models.finding import Finding, ResearchGap, ResearchSynthesis, SynthesisResult
 from app.models.source import Source
 
 logger = logging.getLogger(__name__)

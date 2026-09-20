@@ -5,7 +5,7 @@ import pytest
 
 from app.agent.researcher import Researcher, SourceSelector
 from app.llm.provider import MockLLMProvider
-from app.models.source import Source, SourceAnalysis, SourceFetchStatus, SourceType
+from app.models.source import Source, SourceFetchStatus, SourceType
 from app.search.base import SearchProvider
 from app.search.models import SearchQuery, SearchResult
 from app.sources.fetcher import SourceFetcher

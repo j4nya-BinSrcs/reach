@@ -4,12 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from app.models.research import (
-    ProgressUpdate,
-    ResearchSession,
-    ResearchSessionDetail,
-    StartResearchRequest,
-)
+from app.models.research import ProgressUpdate, ResearchSessionDetail, StartResearchRequest
 from app.services.research_service import ResearchService
 
 logger = logging.getLogger(__name__)
