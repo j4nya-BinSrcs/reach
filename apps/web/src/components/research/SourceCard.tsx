@@ -1,18 +1,65 @@
 import { useState } from 'react';
-import type { Source } from '../../types/source';
+import { Star, Bookmark, Sparkles } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { Source, SourceAnalysis } from '../../types/source';
 import { SourceBadge } from './SourceBadge';
 import { ExternalLink } from '../common/ExternalLink';
 import { formatSourceIndex } from '../../lib/utils';
+import { summarizeSource, updateSourceWorkspace } from '../../lib/api';
+
+const compactBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '0.3125rem 0.625rem',
+  fontSize: '0.75rem',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
 
 interface SourceCardProps {
   source: Source;
   index: number;
+  sessionId: string;
 }
 
-export function SourceCard({ source, index }: SourceCardProps) {
+export function SourceCard({ source, index, sessionId }: SourceCardProps) {
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
+  const [editingTags, setEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState(source.tags.join(', '));
+  const [noteInput, setNoteInput] = useState(source.note);
+  const [editingNote, setEditingNote] = useState(false);
+  const [customSummary, setCustomSummary] = useState<SourceAnalysis | null>(null);
   const isPartial = source.fetch_status === 'partial';
   const isFailed  = source.fetch_status === 'failed';
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['research-session', sessionId] });
+
+  const starMutation = useMutation({
+    mutationFn: (starred: boolean) => updateSourceWorkspace(sessionId, source.id, { starred }),
+    onSuccess: refresh,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (saved: boolean) => updateSourceWorkspace(sessionId, source.id, { saved }),
+    onSuccess: refresh,
+  });
+
+  const tagsMutation = useMutation({
+    mutationFn: (tags: string[]) => updateSourceWorkspace(sessionId, source.id, { tags }),
+    onSuccess: refresh,
+  });
+
+  const noteMutation = useMutation({
+    mutationFn: (note: string) => updateSourceWorkspace(sessionId, source.id, { note }),
+    onSuccess: refresh,
+  });
+
+  const summarizeMutation = useMutation({
+    mutationFn: () => summarizeSource(sessionId, source.id),
+    onSuccess: (analysis) => setCustomSummary(analysis),
+  });
 
   return (
     <article
@@ -140,7 +187,199 @@ export function SourceCard({ source, index }: SourceCardProps) {
         >
           Open ↗
         </ExternalLink>
+
+        {/* Workspace actions */}
+        <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+          <button
+            title={source.starred ? 'Remove star' : 'Star source'}
+            aria-label={source.starred ? 'Remove star' : 'Star source'}
+            aria-pressed={source.starred}
+            onClick={() => starMutation.mutate(!source.starred)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '30px',
+              height: '30px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: source.starred ? 'var(--amber-dim)' : 'transparent',
+              color: source.starred ? 'var(--amber)' : 'var(--text-subtle)',
+              cursor: 'pointer',
+            }}
+          >
+            <Star size={14} fill={source.starred ? 'currentColor' : 'none'} aria-hidden="true" />
+          </button>
+          <button
+            title={source.saved ? 'Unsave source' : 'Save source'}
+            aria-label={source.saved ? 'Unsave source' : 'Save source'}
+            aria-pressed={source.saved}
+            onClick={() => saveMutation.mutate(!source.saved)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '30px',
+              height: '30px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: source.saved ? 'var(--green-dim)' : 'transparent',
+              color: source.saved ? 'var(--green)' : 'var(--text-subtle)',
+              cursor: 'pointer',
+            }}
+          >
+            <Bookmark size={14} fill={source.saved ? 'currentColor' : 'none'} aria-hidden="true" />
+          </button>
+          <button
+            title="Summarize this source"
+            aria-label="Summarize this source"
+            onClick={() => summarizeMutation.mutate()}
+            disabled={summarizeMutation.isPending}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '30px',
+              height: '30px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: summarizeMutation.isPending ? 'var(--surface-elevated)' : 'transparent',
+              color: summarizeMutation.isPending ? 'var(--text-subtle)' : 'var(--accent)',
+              cursor: summarizeMutation.isPending ? 'wait' : 'pointer',
+            }}
+          >
+            <Sparkles size={14} aria-hidden="true" />
+          </button>
+        </div>
       </div>
+
+      {/* Tags + note */}
+      {(source.tags.length > 0 || source.note || editingTags || editingNote) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {source.tags.length > 0 && !editingTags && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+              {source.tags.map((tag) => (
+                <span
+                  key={tag}
+                  style={{
+                    padding: '0.1875rem 0.5rem',
+                    borderRadius: 'var(--radius-xs)',
+                    background: 'var(--surface-elevated)',
+                    border: '1px solid var(--border)',
+                    fontSize: '0.6875rem',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+          {source.note && !editingNote && (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              {source.note}
+            </p>
+          )}
+        </div>
+      )}
+
+      {editingTags && (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                tagsMutation.mutate(tagInput.split(',').map((t) => t.trim()).filter(Boolean));
+                setEditingTags(false);
+              }
+            }}
+            aria-label="Tags (comma separated)"
+            placeholder="core, reference, archive"
+            style={{
+              flex: 1,
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.4375rem 0.625rem',
+              fontSize: '0.8125rem',
+              fontFamily: 'inherit',
+            }}
+          />
+          <button
+            onClick={() => {
+              tagsMutation.mutate(tagInput.split(',').map((t) => t.trim()).filter(Boolean));
+              setEditingTags(false);
+            }}
+            style={{ ...compactBtn, color: 'var(--accent)' }}
+          >
+            Save tags
+          </button>
+        </div>
+      )}
+
+      {editingNote && (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <input
+            value={noteInput}
+            onChange={(e) => setNoteInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                noteMutation.mutate(noteInput.trim());
+                setEditingNote(false);
+              }
+            }}
+            aria-label="Note"
+            placeholder="Add a note about this source…"
+            style={{
+              flex: 1,
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.4375rem 0.625rem',
+              fontSize: '0.8125rem',
+              fontFamily: 'inherit',
+            }}
+          />
+          <button
+            onClick={() => {
+              noteMutation.mutate(noteInput.trim());
+              setEditingNote(false);
+            }}
+            style={{ ...compactBtn, color: 'var(--accent)' }}
+          >
+            Save note
+          </button>
+        </div>
+      )}
+
+      {source.saved && !editingNote && (
+        <button
+          onClick={() => setEditingNote(true)}
+          style={{
+            ...compactBtn,
+            alignSelf: 'flex-start',
+            color: 'var(--text-muted)',
+          }}
+        >
+          {source.note ? 'Edit note' : 'Add note'}
+        </button>
+      )}
+      {!source.saved && !editingNote && !source.note && (
+        <button
+          onClick={() => setEditingNote(true)}
+          style={{
+            ...compactBtn,
+            alignSelf: 'flex-start',
+            color: 'var(--text-subtle)',
+          }}
+        >
+          Add note
+        </button>
+      )}
 
       {/* Relevance bar */}
       <div>
@@ -199,6 +438,33 @@ export function SourceCard({ source, index }: SourceCardProps) {
       {/* Analysis */}
       {source.analysis ? (
         <>
+          {/* Requested summary */}
+          {customSummary && (
+            <div>
+              <p className="label" style={{ marginBottom: '0.375rem', color: 'var(--green)' }}>
+                Focused summary
+              </p>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.65 }}>
+                {customSummary.summary}
+              </p>
+              {customSummary.key_points.length > 0 && (
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.375rem', marginTop: '0.5rem' }}>
+                  {customSummary.key_points.map((p, i) => (
+                    <li key={i} style={{ display: 'flex', gap: '0.625rem', fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                      <span aria-hidden="true" style={{ marginTop: '0.5rem', width: '4px', height: '4px', borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {customSummary.limitations.length > 0 && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--amber)', marginTop: '0.5rem' }}>
+                  {customSummary.limitations.join(' ')}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Why relevant */}
           <div>
             <p className="label" style={{ marginBottom: '0.375rem' }}>

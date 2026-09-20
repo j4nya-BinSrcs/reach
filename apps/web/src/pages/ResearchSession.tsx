@@ -8,6 +8,8 @@ import { ResearchSummary } from '../components/research/ResearchSummary';
 import { FindingCard } from '../components/research/FindingCard';
 import { SourceList } from '../components/research/SourceList';
 import { ResearchGapCard } from '../components/research/ResearchGapCard';
+import { ResearchReportView } from '../components/research/ResearchReportView';
+import { SourceComparisonPanel } from '../components/research/SourceComparisonPanel';
 import { LoadingState } from '../components/common/LoadingState';
 import { ErrorState } from '../components/common/ErrorState';
 import { EmptyState } from '../components/common/EmptyState';
@@ -140,10 +142,17 @@ export function ResearchSession() {
       {/* Objective header */}
       <ResearchHeader session={session} />
 
+      {/* Report */}
+      {session.report && (
+        <Section id="report" title="Research Report">
+          <ResearchReportView report={session.report} />
+        </Section>
+      )}
+
       {/* Summary */}
-      {session.synthesis && (
+      {session.summary && (
         <Section id="overview" title="Summary">
-          <ResearchSummary synthesis={session.synthesis} />
+          <ResearchSummary synthesis={session.summary} />
         </Section>
       )}
 
@@ -171,7 +180,16 @@ export function ResearchSession() {
       {/* Sources */}
       <Section id="sources" title="Sources" count={session.sources.length}>
         {session.sources.length > 0 ? (
-          <SourceList sources={session.sources} />
+          <>
+            <SourceList sessionId={session.id} sources={session.sources} />
+            <div style={{ marginTop: '2.5rem' }}>
+              <SourceComparisonPanel
+                sessionId={session.id}
+                sources={session.sources}
+                enabled={session.sources.length >= 2}
+              />
+            </div>
+          </>
         ) : (
           <EmptyState
             title="No sources collected"

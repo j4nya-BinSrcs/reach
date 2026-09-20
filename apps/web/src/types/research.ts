@@ -1,4 +1,4 @@
-// Research session types
+// Research session types (view contract after API normalization)
 
 export type ResearchStatus =
   | 'planning'
@@ -31,33 +31,64 @@ export interface Finding {
   session_id: string;
   title: string;
   summary: string;
-  source_ids: string[]; // references into sources array
+  source_ids: string[]; // source ids (as strings) supporting this finding
 }
 
 export interface ResearchGap {
   id: string;
-  title: string;
-  description: string;
+  title: string;     // backend: question
+  description: string; // backend: rationale
 }
 
 export interface ResearchSynthesis {
   overview: string;
-  key_technologies: string[];
+  key_technologies: string[];   // backend: relevant_technologies
   existing_projects: string[];
-  research_directions: string[];
+  research_directions: string[]; // backend does not emit; normalized to []
+}
+
+export interface ComparisonPoint {
+  statement: string;
+  source_a_evidence: string;
+  source_b_evidence: string;
+}
+
+export interface SourceComparisonResult {
+  overview: string;
+  similarities: ComparisonPoint[];
+  differences: ComparisonPoint[];
+  contradictions: ComparisonPoint[];
+  complementarity_notes: string;
+}
+
+export interface SourceComparison {
+  id: string;
+  source_a_id: string;
+  source_b_id: string;
+  result: SourceComparisonResult;
+}
+
+export interface ResearchReport {
+  intent: 'build' | 'study' | 'general';
+  markdown: string;
 }
 
 export interface ResearchSession {
   id: string;
   objective: string;
   status: ResearchStatus;
+  progress: number;
+  message: string;
+  error: string | null;
   created_at: string;
   updated_at: string;
   queries: ResearchQuery[];
   sources: import('./source').Source[];
   findings: Finding[];
   gaps: ResearchGap[];
-  synthesis: ResearchSynthesis | null;
+  summary: ResearchSynthesis | null;
+  comparisons: SourceComparison[];
+  report: ResearchReport | null;
 }
 
 export interface StartResearchResponse {

@@ -1,4 +1,4 @@
-// Source types
+// Source types (view contract after API normalization)
 
 export type SourceType =
   | 'paper'
@@ -25,11 +25,15 @@ export interface Source {
   session_id: string;
   url: string;
   title: string;
-  type: SourceType;
+  type: SourceType; // backend: source_type
   domain: string;
   description: string;
   snippet: string;
-  relevance: number; // 0–100
-  fetch_status: FetchStatus;
+  relevance: number; // 0–100 (backend sends 0–1, normalized)
+  fetch_status: FetchStatus; // 'fetched' → 'success', 'skipped' → 'pending'
   analysis: SourceAnalysis | null;
+  starred: boolean;
+  saved: boolean;
+  note: string;
+  tags: string[];
 }

@@ -38,7 +38,7 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
     }
   }
 
-  function useExample(prompt: string) {
+  function applyExample(prompt: string) {
     setValue(prompt);
     textareaRef.current?.focus();
   }
@@ -198,7 +198,7 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
           {EXAMPLE_PROMPTS.map((prompt, i) => (
             <button
               key={i}
-              onClick={() => useExample(prompt)}
+              onClick={() => applyExample(prompt)}
               style={{
                 textAlign: 'left',
                 padding: '0.625rem 0.875rem',

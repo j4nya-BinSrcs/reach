@@ -21,7 +21,7 @@ export function ResearchProgress({ objective, progress, isFailed }: ResearchProg
     if (barRef.current && progress) {
       barRef.current.style.width = `${progress.progress}%`;
     }
-  }, [progress?.progress]);
+  }, [progress]);
 
   return (
     <div
