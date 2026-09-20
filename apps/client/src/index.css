@@ -144,8 +144,8 @@ code, .mono {
     ──────────────────────────────────────────────────────── */
 
 @keyframes grid-glow {
-  0%, 100% { opacity: 0; transform: scale(1); }
-  50%      { opacity: 0.15; transform: scale(1.05); }
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.05); }
 }
 
 .bg-grid {
@@ -161,10 +161,10 @@ code, .mono {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(232, 185, 49, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(232, 185, 49, 0.04) 1px, transparent 1px);
-  background-size: 60px 60px;
-  animation: grid-glow 8s ease-in-out infinite;
+    linear-gradient(rgba(232, 185, 49, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 185, 49, 0.08) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: grid-glow 12s ease-in-out infinite;
 }
 
 .bg-grid::after {
@@ -172,11 +172,11 @@ code, .mono {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 400px;
-  height: 400px;
+  width: 500px;
+  height: 500px;
   transform: translate(-50%, -50%);
-  background: radial-gradient(ellipse, rgba(232, 185, 49, 0.06) 0%, transparent 70%);
-  animation: grid-glow 6s ease-in-out infinite;
+  background: radial-gradient(ellipse, rgba(232, 185, 49, 0.12) 0%, transparent 70%);
+  animation: grid-glow 10s ease-in-out infinite;
 }
 
 .grid-hover-zone {
@@ -189,10 +189,10 @@ code, .mono {
 .grid-hover-zone::before {
   content: "";
   position: absolute;
-  width: 300px;
-  height: 300px;
+  width: 400px;
+  height: 400px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(232, 185, 49, 0.08) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(232, 185, 49, 0.15) 0%, transparent 70%);
   transform: translate(-50%, -50%);
   transition: opacity 0.3s ease;
   opacity: 0;

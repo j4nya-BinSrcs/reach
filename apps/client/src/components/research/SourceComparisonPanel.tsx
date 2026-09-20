@@ -140,11 +140,13 @@ export function SourceComparisonPanel({ sessionId, sources, enabled }: SourceCom
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Controls */}
+      {/* Controls - Sticky */}
       <div style={{
         display: 'flex', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap',
         padding: '1rem 1.25rem', borderRadius: 'var(--radius-md)',
         border: '1px solid var(--border)', background: 'var(--surface)',
+        position: 'sticky', top: '0', zIndex: 10,
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
       }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', flex: 1, minWidth: '160px' }}>
           <span className="label" style={{ color: 'var(--text-muted)' }}>Source A</span>
