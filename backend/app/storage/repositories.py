@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.models.finding import Finding, ResearchGap, ResearchSynthesis
+from app.models.finding import Finding, ResearchGap, ResearchSynthesis, SourceComparison, SourceComparisonResult
 from app.models.research import ResearchSession, SessionStatus
 from app.models.source import Source, SourceAnalysis, SourceFetchStatus, SourceType
 from app.storage.database import session_connection
@@ -283,3 +283,48 @@ def json_parse(raw: Any, default: Any = MISSING) -> Any:
         if default is MISSING:
             raise
         return default
+
+
+class ComparisonRepository:
+    def __init__(self, db_path: Path) -> None:
+        self._path = Path(db_path)
+
+    def add_comparison(self, comparison: SourceComparison) -> int:
+        with session_connection(self._path) as connection:
+            cursor = connection.execute(
+                "INSERT INTO source_comparisons (session_id, source_a_id, source_b_id, result, created_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (comparison.session_id, comparison.source_a_id, comparison.source_b_id, comparison.result.model_dump_json(), _now()),
+            )
+            return int(cursor.lastrowid)
+
+    def get_comparisons(self, session_id: str) -> list[SourceComparison]:
+        with session_connection(self._path) as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_comparisons WHERE session_id = ? ORDER BY id", (session_id,)
+            ).fetchall()
+        return [
+            SourceComparison(
+                id=row["id"],
+                session_id=row["session_id"],
+                source_a_id=row["source_a_id"],
+                source_b_id=row["source_b_id"],
+                result=SourceComparisonResult.model_validate_json(row["result"] or "{}"),
+            )
+            for row in rows
+        ]
+
+    def get_comparison(self, session_id: str, comparison_id: int) -> SourceComparison | None:
+        with session_connection(self._path) as connection:
+            row = connection.execute(
+                "SELECT * FROM source_comparisons WHERE session_id = ? AND id = ?", (session_id, comparison_id)
+            ).fetchone()
+        if row is None:
+            return None
+        return SourceComparison(
+            id=row["id"],
+            session_id=row["session_id"],
+            source_a_id=row["source_a_id"],
+            source_b_id=row["source_b_id"],
+            result=SourceComparisonResult.model_validate_json(row["result"] or "{}"),
+        )

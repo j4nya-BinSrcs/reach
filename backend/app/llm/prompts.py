@@ -120,3 +120,47 @@ def synthesis_prompts(objective: str, analyses: list[SourceAnalysis], sources: l
         )
     user = f"RESEARCH OBJECTIVE\n{objective}\n\nANALYZED SOURCES\n" + "\n\n".join(blocks)
     return SYNTHESIS_SYSTEM, user
+
+
+# ---------------------------------------------------------------------------
+# Source comparison
+# ---------------------------------------------------------------------------
+
+COMPARISON_SYSTEM = """You are the source comparator for REACH. You receive the analyzed
+content of TWO research sources relevant to one research objective.
+
+Produce a careful comparison with ONLY the fields described:
+- overview: 2-4 sentences summarizing how the two sources relate overall.
+- similarities: points where both sources agree or say the same thing.
+  Each includes statement, and evidence from source A and/or source B.
+- differences: points where the sources diverge, deprioritize, or emphasize
+  different angles (not necessarily contradictory).
+- contradictions: points where the sources actively disagree or are
+  irreconcilable. If there are none, return an empty list.
+- complementarity_notes: how the two sources together cover more ground than
+  either alone.
+
+Ground every point in the supplied material; never invent facts or quotes.
+Return ONLY a JSON object."""
+
+
+def comparison_prompts(objective: str, source_a: Source, source_b: Source) -> tuple[str, str]:
+    """Build prompts comparing two sources by their fetched content/analysis."""
+    user = (
+        f"RESEARCH OBJECTIVE\n{objective}\n\n"
+        f"SOURCE A — {source_a.title} ({source_a.url})\n"
+        f"Type: {source_a.source_type.value}\n"
+        f"Summary: {(source_a.analysis.summary or '')}\n"
+        f"Key points:\n"
+        + "\n".join(f"- {point}" for point in source_a.analysis.key_points)
+        + "\n"
+        f"Content excerpt:\n{source_a.content[:5000]}\n\n"
+        f"SOURCE B — {source_b.title} ({source_b.url})\n"
+        f"Type: {source_b.source_type.value}\n"
+        f"Summary: {(source_b.analysis.summary or '')}\n"
+        f"Key points:\n"
+        + "\n".join(f"- {point}" for point in source_b.analysis.key_points)
+        + "\n"
+        f"Content excerpt:\n{source_b.content[:5000]}"
+    )
+    return COMPARISON_SYSTEM, user

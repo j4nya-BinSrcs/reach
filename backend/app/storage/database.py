@@ -67,11 +67,21 @@ CREATE TABLE IF NOT EXISTS research_gaps (
     position    INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS source_comparisons (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL REFERENCES research_sessions(id) ON DELETE CASCADE,
+    source_a_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    source_b_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    result      TEXT NOT NULL DEFAULT '{}',
+    created_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_queries_session   ON queries(session_id);
 CREATE INDEX IF NOT EXISTS idx_sources_session   ON sources(session_id);
 CREATE INDEX IF NOT EXISTS idx_sources_url       ON sources(session_id, url);
 CREATE INDEX IF NOT EXISTS idx_findings_session  ON findings(session_id);
 CREATE INDEX IF NOT EXISTS idx_gaps_session      ON research_gaps(session_id);
+CREATE INDEX IF NOT EXISTS idx_comparisons_session ON source_comparisons(session_id);
 """
 
 

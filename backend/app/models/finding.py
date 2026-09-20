@@ -58,3 +58,36 @@ class SynthesisResult(BaseModel):
     relevant_technologies: list[str] = Field(default_factory=list)
     important_sources: list[str] = Field(default_factory=list)
     open_questions: list[OpenQuestion] = Field(default_factory=list)
+
+
+class ComparisonPoint(BaseModel):
+    """One similarity, difference, or contradiction between two sources."""
+
+    statement: str
+    source_a_evidence: str = ""
+    source_b_evidence: str = ""
+
+
+class SourceComparisonResult(BaseModel):
+    """Structured output comparing two research sources.
+
+    Captures what the sources agree on, where they diverge, and where they
+    actively contradict each other. ``overview`` is a short narrative summary
+    of how the two results relate.
+    """
+
+    overview: str = ""
+    similarities: list[ComparisonPoint] = Field(default_factory=list)
+    differences: list[ComparisonPoint] = Field(default_factory=list)
+    contradictions: list[ComparisonPoint] = Field(default_factory=list)
+    complementarity_notes: str = ""
+
+
+class SourceComparison(BaseModel):
+    """A persisted comparison between two sources of the same session."""
+
+    id: int | None = None
+    session_id: str
+    source_a_id: int
+    source_b_id: int
+    result: SourceComparisonResult = Field(default_factory=SourceComparisonResult)
