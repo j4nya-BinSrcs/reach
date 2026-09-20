@@ -134,3 +134,32 @@ class TestCompareSources:
     def test_list_comparisons(self, client: TestClient) -> None:
         session_id, sources = self._completed_session(client)
         assert client.get(f"/api/research/{session_id}/comparisons").json() == []
+
+
+class TestReport:
+    def _completed_session_id(self, client: TestClient) -> str:
+        response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
+        assert response.status_code == 201
+        session_id = response.json()["session_id"]
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            update = client.get(f"/api/research/{session_id}/status").json()
+            if update["status"] in {"complete", "failed"}:
+                break
+            time.sleep(0.05)
+        return session_id
+
+    def test_report_endpoint_returns_markdown(self, client: TestClient) -> None:
+        session_id = self._completed_session_id(client)
+        response = client.get(f"/api/research/{session_id}/report")
+        assert response.status_code == 200
+        assert "# Research Report" in response.text
+
+    def test_report_in_detail_payload(self, client: TestClient) -> None:
+        session_id = self._completed_session_id(client)
+        detail = client.get(f"/api/research/{session_id}").json()
+        assert detail["report"] is not None
+        assert "# Research Report" in detail["report"]["markdown"]
+
+    def test_report_not_found_for_missing_session(self, client: TestClient) -> None:
+        assert client.get("/api/research/nope/report").status_code == 404

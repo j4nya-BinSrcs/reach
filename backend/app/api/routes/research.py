@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.models.finding import SourceComparison
@@ -66,3 +67,12 @@ async def compare_sources(session_id: str, payload: CompareSourcesRequest, reque
 async def list_comparisons(session_id: str, request: Request) -> list[SourceComparison]:
     """List all persisted comparisons for a session."""
     return _service(request).get_comparisons(session_id)
+
+
+@router.get("/{session_id}/report", response_class=PlainTextResponse)
+async def get_report(session_id: str, request: Request) -> str:
+    """Return the detailed markdown research report for a session."""
+    report = _service(request).get_report(session_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not ready or session not found")
+    return report.markdown

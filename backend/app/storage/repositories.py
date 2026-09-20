@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from app.models.finding import Finding, ResearchGap, ResearchSynthesis, SourceComparison, SourceComparisonResult
+from app.models.report import ResearchReport
 from app.models.research import ResearchSession, SessionStatus
 from app.models.source import Source, SourceAnalysis, SourceFetchStatus, SourceType
 from app.storage.database import session_connection
@@ -105,6 +106,22 @@ class SessionRepository:
         if row is None or not row["synthesis"]:
             return None
         return ResearchSynthesis.model_validate_json(row["synthesis"])
+
+    def save_report(self, session_id: str, report: ResearchReport) -> None:
+        with session_connection(self._path) as connection:
+            connection.execute(
+                "UPDATE research_sessions SET report = ?, updated_at = ? WHERE id = ?",
+                (report.model_dump_json(), _now(), session_id),
+            )
+
+    def get_report(self, session_id: str) -> ResearchReport | None:
+        with session_connection(self._path) as connection:
+            row = connection.execute(
+                "SELECT report FROM research_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        if row is None or not row["report"]:
+            return None
+        return ResearchReport.model_validate_json(row["report"])
 
     def add_queries(self, session_id: str, queries: list[str]) -> None:
         now = _now()

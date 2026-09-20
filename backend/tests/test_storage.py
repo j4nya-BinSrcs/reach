@@ -30,7 +30,22 @@ class TestDatabase:
             "findings",
             "finding_sources",
             "research_gaps",
+            "source_comparisons",
         } <= tables
+
+    def test_init_db_migrates_preexisting_schema(self, tmp_path: Path) -> None:
+        from app.storage.database import SCHEMA, connect
+
+        legacy = tmp_path / "legacy.db"
+        legacy_schema = SCHEMA.replace("    report      TEXT,\n", "")
+        with connect(legacy) as connection:
+            connection.executescript(legacy_schema)
+
+        init_db(legacy)
+
+        with connect(legacy) as connection:
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(research_sessions)")}
+        assert "report" in columns
 
 
 class TestSessionRepository:

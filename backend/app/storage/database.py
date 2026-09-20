@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS research_sessions (
     message     TEXT NOT NULL DEFAULT '',
     error       TEXT,
     synthesis   TEXT,
+    report      TEXT,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
@@ -85,6 +86,13 @@ CREATE INDEX IF NOT EXISTS idx_comparisons_session ON source_comparisons(session
 """
 
 
+_MIGRATIONS: dict[str, list[str]] = {
+    "research_sessions": [
+        "ALTER TABLE research_sessions ADD COLUMN report TEXT",
+    ],
+}
+
+
 def connect(path: Path) -> sqlite3.Connection:
     """Open a SQLite connection with sane defaults for the prototype."""
     connection = sqlite3.connect(str(path))
@@ -109,8 +117,27 @@ def session_connection(path: Path) -> Iterator[sqlite3.Connection]:
         connection.close()
 
 
+def _column_name(statement: str) -> str:
+    """Return the column being added by an ALTER TABLE statement."""
+    return statement.replace("ADD COLUMN", "ADD COLUMN").split("ADD COLUMN", 1)[-1].split()[0]
+
+
+def _migrate(connection: sqlite3.Connection) -> None:
+    """Idempotently add columns introduced after the original schema."""
+    for table, statements in _MIGRATIONS.items():
+        existing = {
+            row["name"]
+            for row in connection.execute(f"PRAGMA table_info({table})")
+        }
+        for statement in statements:
+            column = _column_name(statement)
+            if column not in existing:
+                connection.execute(statement)
+
+
 def init_db(path: Path) -> None:
-    """Create the schema (idempotent)."""
+    """Create the schema (idempotent) and apply column migrations."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with session_connection(path) as connection:
         connection.executescript(SCHEMA)
+        _migrate(connection)

@@ -5,6 +5,8 @@ passed to a provider. Structured prompts rely on the provider appending a
 JSON-schema hint, so this file stays free of inline schema dumps.
 """
 
+from app.models.finding import Finding, ResearchGap, ResearchSynthesis
+from app.models.report import ReportIntent
 from app.models.source import Source, SourceAnalysis
 
 # ---------------------------------------------------------------------------
@@ -164,3 +166,64 @@ def comparison_prompts(objective: str, source_a: Source, source_b: Source) -> tu
         f"Content excerpt:\n{source_b.content[:5000]}"
     )
     return COMPARISON_SYSTEM, user
+
+
+# ---------------------------------------------------------------------------
+# Research report
+# ---------------------------------------------------------------------------
+
+REPORT_SYSTEM = """You are the report writer for REACH. You turn a completed research run
+into a detailed, well-structured research document. You receive the objective,
+its detected intent, analyzed sources, cross-source findings, research gaps,
+and the synthesis brief.
+
+The intent determines which sections matter most:
+- "build": emphasize architecture and recommended project structure, libraries
+  and frameworks, a concrete build plan, and optimizations.
+- "study": emphasize history and background, important people, key concepts
+  (including math where relevant), and precise citations.
+- "general": cover all sections reasonably and evenly.
+
+Rules:
+- Ground every claim in the supplied sources/findings; never invent citations,
+  dates, people, or facts.
+- Be concrete and specific; prefer named tools, papers, and figures.
+- Each list item is a self-contained, skimmable bullet.
+- Leave a section empty (empty list / empty string) only when the material
+  genuinely does not cover it.
+Return ONLY a JSON object matching the requested schema."""
+
+def report_prompts(
+    objective: str,
+    intent: ReportIntent,
+    sources: list[Source],
+    findings: list[Finding],
+    gaps: list[ResearchGap],
+    synthesis: ResearchSynthesis | None,
+) -> tuple[str, str]:
+    """Build prompts that produce the typed content of a research report."""
+    source_lines = "\n".join(
+        f"- {source.title or source.url} ({source.url}) — {source.analysis.summary or ''}"
+        for source in sources
+        if source.analysis and source.analysis.summary
+    )
+    finding_lines = "\n".join(f"- {finding.title}: {finding.summary}" for finding in findings)
+    gap_lines = "\n".join(f"- {gap.question}" for gap in gaps)
+    synthesis_block = (
+        synthesis.overview
+        if synthesis
+        else ""
+    ) + "\nExisting projects: " + (
+        ", ".join(synthesis.existing_projects) if synthesis and synthesis.existing_projects else "none highlighted"
+    ) + "\nRelevant technologies: " + (
+        ", ".join(synthesis.relevant_technologies) if synthesis and synthesis.relevant_technologies else "none highlighted"
+    )
+    user = (
+        f"RESEARCH OBJECTIVE\n{objective}\n\n"
+        f"DETECTED INTENT\n{intent.value}\n\n"
+        f"SYNTHESIS BRIEF\n{synthesis_block}\n\n"
+        f"KEY FINDINGS\n{finding_lines or '(none)'}\n\n"
+        f"RESEARCH GAPS\n{gap_lines or '(none)'}\n\n"
+        f"ANALYZED SOURCES\n{source_lines or '(none)'}"
+    )
+    return REPORT_SYSTEM, user
