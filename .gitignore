@@ -1,6 +1,8 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
 *.egg-info/
 .venv/
 venv/
@@ -14,6 +16,8 @@ venv/
 !.env.example
 
 # Data
+*.db
+*.sqlite
 data/*.db
 data/*.db-journal
 data/*.db-wal
@@ -22,10 +26,15 @@ data/*.db-shm
 # Node / frontend
 node_modules/
 dist/
-*.local
+.cache/
+apps/web/dist/
+apps/web/.vite/
 
 # OS / editor
 .DS_Store
+Thumbs.db
 *.swp
+*.log
 .idea/
 .vscode/
+!.vscode/settings.json
