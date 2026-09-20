@@ -1,64 +1,18 @@
 import { useState } from 'react';
-import { Star, Bookmark, Sparkles } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Source } from '../../types/source';
 import { SourceBadge } from './SourceBadge';
-import { SourceSummaryModal } from './SourceSummaryModal';
 import { ExternalLink } from '../common/ExternalLink';
 import { formatSourceIndex } from '../../lib/utils';
-import { updateSourceWorkspace } from '../../lib/api';
-
-const compactBtn: React.CSSProperties = {
-  background: 'transparent',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0.3125rem 0.625rem',
-  fontSize: '0.75rem',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
 
 interface SourceCardProps {
   source: Source;
   index: number;
-  sessionId: string;
 }
 
-export function SourceCard({ source, index, sessionId }: SourceCardProps) {
-  const queryClient = useQueryClient();
+export function SourceCard({ source, index }: SourceCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [editingTags, setEditingTags] = useState(false);
-  const [tagInput, setTagInput] = useState(source.tags.join(', '));
-  const [noteInput, setNoteInput] = useState(source.note);
-  const [editingNote, setEditingNote] = useState(false);
-  const [summaryOpen, setSummaryOpen] = useState(false);
   const isPartial = source.fetch_status === 'partial';
   const isFailed  = source.fetch_status === 'failed';
-
-  const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['research-session', sessionId] });
-    queryClient.invalidateQueries({ queryKey: ['workspace', sessionId] });
-  };
-
-  const starMutation = useMutation({
-    mutationFn: (starred: boolean) => updateSourceWorkspace(sessionId, source.id, { starred }),
-    onSuccess: refresh,
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: (saved: boolean) => updateSourceWorkspace(sessionId, source.id, { saved }),
-    onSuccess: refresh,
-  });
-
-  const tagsMutation = useMutation({
-    mutationFn: (tags: string[]) => updateSourceWorkspace(sessionId, source.id, { tags }),
-    onSuccess: refresh,
-  });
-
-  const noteMutation = useMutation({
-    mutationFn: (note: string) => updateSourceWorkspace(sessionId, source.id, { note }),
-    onSuccess: refresh,
-  });
 
   return (
     <article
@@ -99,7 +53,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <SourceBadge type={source.type} size="sm" />
-            {/* Index */}
             <span
               style={{
                 fontSize: '0.6875rem',
@@ -186,198 +139,7 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
         >
           Open ↗
         </ExternalLink>
-
-        {/* Workspace actions */}
-        <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
-          <button
-            title={source.starred ? 'Remove star' : 'Star source'}
-            aria-label={source.starred ? 'Remove star' : 'Star source'}
-            aria-pressed={source.starred}
-            onClick={() => starMutation.mutate(!source.starred)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '30px',
-              height: '30px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)',
-              background: source.starred ? 'var(--amber-dim)' : 'transparent',
-              color: source.starred ? 'var(--amber)' : 'var(--text-subtle)',
-              cursor: 'pointer',
-            }}
-          >
-            <Star size={14} fill={source.starred ? 'currentColor' : 'none'} aria-hidden="true" />
-          </button>
-          <button
-            title={source.saved ? 'Unsave source' : 'Save source'}
-            aria-label={source.saved ? 'Unsave source' : 'Save source'}
-            aria-pressed={source.saved}
-            onClick={() => saveMutation.mutate(!source.saved)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '30px',
-              height: '30px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)',
-              background: source.saved ? 'var(--green-dim)' : 'transparent',
-              color: source.saved ? 'var(--green)' : 'var(--text-subtle)',
-              cursor: 'pointer',
-            }}
-          >
-            <Bookmark size={14} fill={source.saved ? 'currentColor' : 'none'} aria-hidden="true" />
-          </button>
-          <button
-            title="Summarize this source"
-            aria-label="Summarize this source"
-            onClick={() => setSummaryOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '30px',
-              height: '30px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)',
-              background: 'transparent',
-              color: 'var(--accent)',
-              cursor: 'pointer',
-            }}
-          >
-            <Sparkles size={14} aria-hidden="true" />
-          </button>
-        </div>
       </div>
-
-      {/* Tags + note */}
-      {(source.tags.length > 0 || source.note || editingTags || editingNote) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {source.tags.length > 0 && !editingTags && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-              {source.tags.map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    padding: '0.1875rem 0.5rem',
-                    borderRadius: 'var(--radius-xs)',
-                    background: 'var(--surface-elevated)',
-                    border: '1px solid var(--border)',
-                    fontSize: '0.6875rem',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    color: 'var(--accent)',
-                  }}
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-          {source.note && !editingNote && (
-            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              {source.note}
-            </p>
-          )}
-        </div>
-      )}
-
-      {editingTags && (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                tagsMutation.mutate(tagInput.split(',').map((t) => t.trim()).filter(Boolean));
-                setEditingTags(false);
-              }
-            }}
-            aria-label="Tags (comma separated)"
-            placeholder="core, reference, archive"
-            style={{
-              flex: 1,
-              background: 'var(--surface-elevated)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '0.4375rem 0.625rem',
-              fontSize: '0.8125rem',
-              fontFamily: 'inherit',
-            }}
-          />
-          <button
-            onClick={() => {
-              tagsMutation.mutate(tagInput.split(',').map((t) => t.trim()).filter(Boolean));
-              setEditingTags(false);
-            }}
-            style={{ ...compactBtn, color: 'var(--accent)' }}
-          >
-            Save tags
-          </button>
-        </div>
-      )}
-
-      {editingNote && (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <input
-            value={noteInput}
-            onChange={(e) => setNoteInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                noteMutation.mutate(noteInput.trim());
-                setEditingNote(false);
-              }
-            }}
-            aria-label="Note"
-            placeholder="Add a note about this source…"
-            style={{
-              flex: 1,
-              background: 'var(--surface-elevated)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '0.4375rem 0.625rem',
-              fontSize: '0.8125rem',
-              fontFamily: 'inherit',
-            }}
-          />
-          <button
-            onClick={() => {
-              noteMutation.mutate(noteInput.trim());
-              setEditingNote(false);
-            }}
-            style={{ ...compactBtn, color: 'var(--accent)' }}
-          >
-            Save note
-          </button>
-        </div>
-      )}
-
-      {source.saved && !editingNote && (
-        <button
-          onClick={() => setEditingNote(true)}
-          style={{
-            ...compactBtn,
-            alignSelf: 'flex-start',
-            color: 'var(--text-muted)',
-          }}
-        >
-          {source.note ? 'Edit note' : 'Add note'}
-        </button>
-      )}
-      {!source.saved && !editingNote && !source.note && (
-        <button
-          onClick={() => setEditingNote(true)}
-          style={{
-            ...compactBtn,
-            alignSelf: 'flex-start',
-            color: 'var(--text-subtle)',
-          }}
-        >
-          Add note
-        </button>
-      )}
 
       {/* Relevance bar */}
       <div>
@@ -436,7 +198,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
       {/* Analysis */}
       {source.analysis ? (
         <>
-          {/* Why relevant */}
           <div>
             <p className="label" style={{ marginBottom: '0.375rem' }}>
               Why relevant
@@ -446,7 +207,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
             </p>
           </div>
 
-          {/* Toggle more details */}
           <button
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
@@ -476,7 +236,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
               className="animate-fade-in stagger-children"
               style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
             >
-              {/* Summary */}
               <div>
                 <p className="label" style={{ marginBottom: '0.375rem' }}>Summary</p>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.65 }}>
@@ -484,18 +243,10 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
                 </p>
               </div>
 
-              {/* Key points */}
               {source.analysis.key_points.length > 0 && (
                 <div>
                   <p className="label" style={{ marginBottom: '0.5rem' }}>Key points</p>
-                  <ul
-                    style={{
-                      listStyle: 'none',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.375rem',
-                    }}
-                  >
+                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                     {source.analysis.key_points.map((point, i) => (
                       <li
                         key={i}
@@ -525,7 +276,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
                 </div>
               )}
 
-              {/* Technologies */}
               {source.analysis.technologies.length > 0 && (
                 <div>
                   <p className="label" style={{ marginBottom: '0.375rem' }}>Technologies</p>
@@ -550,20 +300,12 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
                 </div>
               )}
 
-              {/* Limitations */}
               {source.analysis.limitations.length > 0 && (
                 <div>
                   <p className="label" style={{ marginBottom: '0.375rem', color: 'var(--amber)' }}>
                     Limitations
                   </p>
-                  <ul
-                    style={{
-                      listStyle: 'none',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.375rem',
-                    }}
-                  >
+                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                     {source.analysis.limitations.map((lim, i) => (
                       <li
                         key={i}
@@ -603,15 +345,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.6, fontStyle: 'italic' }}>
           {source.snippet}
         </p>
-      )}
-
-      {/* Focused summary modal */}
-      {summaryOpen && (
-        <SourceSummaryModal
-          sessionId={sessionId}
-          source={source}
-          onClose={() => setSummaryOpen(false)}
-        />
       )}
     </article>
   );

@@ -202,7 +202,6 @@ export function Workspace() {
               key={source.id}
               source={source}
               index={index}
-              sessionId={id ?? ''}
             />
           ))}
         </div>

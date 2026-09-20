@@ -2,11 +2,10 @@ import type { Source } from '../../types/source';
 import { SourceCard } from './SourceCard';
 
 interface SourceListProps {
-  sessionId: string;
   sources: Source[];
 }
 
-export function SourceList({ sessionId, sources }: SourceListProps) {
+export function SourceList({ sources }: SourceListProps) {
   const successCount = sources.filter((s) => s.fetch_status === 'success').length;
   const partialCount = sources.filter((s) => s.fetch_status === 'partial').length;
   const failedCount  = sources.filter((s) => s.fetch_status === 'failed').length;
@@ -55,7 +54,7 @@ export function SourceList({ sessionId, sources }: SourceListProps) {
       {/* Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {sources.map((source, index) => (
-          <SourceCard key={source.id} source={source} index={index} sessionId={sessionId} />
+          <SourceCard key={source.id} source={source} index={index} />
         ))}
       </div>
     </div>

@@ -19,23 +19,23 @@ export function ResearchHeader({ session, running = false }: ResearchHeaderProps
       style={{
         paddingBottom: '2rem',
         borderBottom: '1px solid var(--border)',
-        marginBottom: '2.5rem',
+        marginBottom: '2rem',
       }}
     >
       {/* Eyebrow */}
-      <p className="label" style={{ marginBottom: '0.875rem', color: 'var(--accent)' }}>
+      <p className="label" style={{ marginBottom: '0.5rem', color: 'var(--accent)' }}>
         Research Session
       </p>
 
       {/* Objective */}
       <h1
         style={{
-          fontSize: '1.375rem',
+          fontSize: '1.25rem',
           fontWeight: 600,
           letterSpacing: '-0.025em',
           lineHeight: 1.3,
           color: 'var(--text)',
-          marginBottom: '1.5rem',
+          marginBottom: '1rem',
           maxWidth: '700px',
         }}
       >
@@ -137,30 +137,40 @@ export function ResearchHeader({ session, running = false }: ResearchHeaderProps
         </span>
       </div>
 
-      {/* Query chips */}
+      {/* Generated queries dropdown */}
       {session.queries.length > 0 && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <p className="label" style={{ marginBottom: '0.625rem' }}>
-            Research queries
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ marginTop: '1rem' }}>
+          <label
+            htmlFor="queries-select"
+            className="label"
+            style={{ marginBottom: '0.375rem', color: 'var(--text-muted)' }}
+          >
+            Generated queries ({session.queries.length})
+          </label>
+          <select
+            id="queries-select"
+            multiple
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              minHeight: '72px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-muted)',
+              fontSize: '0.75rem',
+              fontFamily: 'JetBrains Mono, monospace',
+              padding: '0.5rem 0.625rem',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
             {session.queries.map((q) => (
-              <span
-                key={q.id}
-                style={{
-                  padding: '0.3125rem 0.625rem',
-                  borderRadius: 'var(--radius-xs)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  fontFamily: 'JetBrains Mono, monospace',
-                }}
-              >
+              <option key={q.id} value={q.query} style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}>
                 {q.query}
-              </span>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
       )}
     </header>
