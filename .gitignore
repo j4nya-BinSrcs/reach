@@ -1,0 +1,38 @@
+# Node
+node_modules/
+dist/
+.cache/
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env.production
+
+# Vite
+apps/web/dist/
+apps/web/.vite/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+
+# SQLite data
+*.db
+*.sqlite
+data/*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Logs
+*.log
