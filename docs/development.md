@@ -1,52 +1,73 @@
-# REACH — Development Guide
+# REACH — Development guide
 
-Setup, environment, and workflow for working on the REACH monorepo
-(backend + web). For the fastest full-stack check, see
-[`scripts/launch.sh`](../scripts/launch.sh), which boots the backend in mock
-mode, builds and serves the web app, and smoke-tests the whole product.
+Setup, environment, and day-to-day workflow for the REACH monorepo
+(backend + web). For product smoke testing, prefer
+[`scripts/launch.sh`](../scripts/launch.sh). Architecture context:
+[architecture.md](architecture.md). Testing strategy: [testing.md](testing.md).
 
 ## Prerequisites
 
-- Python 3.11+ (developed against 3.14)
-- Node 20+ / npm (for the web app)
-- (optional) API keys for real research: an LLM key and a Tavily key
+| Tool | Notes |
+| --- | --- |
+| Python 3.11+ | Developed against 3.14 |
+| Node 20+ / npm | Web app |
+| Optional API keys | LLM (OpenAI-compatible) + Tavily for real research |
 
-## Setup
+## Quick start (Makefile)
 
 ```bash
-# 1. Create and activate the virtualenv
+make setup            # backend venv + web deps (once)
+make dev              # backend (:8000) + web (:5173)
+make test             # backend pytest + lint, web lint + build
+make full             # mock backend + web + API smoke contract
+make clean            # remove venv, node_modules, dist, local DBs
+```
+
+Or use the scripts directly:
+
+```bash
+./scripts/dev.sh backend
+./scripts/dev.sh frontend
+./scripts/launch.sh                 # full product smoke
+REACH_BACKEND_ONLY=1 ./scripts/launch.sh
+```
+
+## Manual setup
+
+```bash
+# Backend
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env                # add keys for real research
 
-# 2. Install dependencies
-pip install -r requirements.txt          # runtime
-pip install -r requirements-dev.txt      # tests
-
-# 3. Web dependencies
+# Web
 cd ../apps/web && npm install
-```
-
-Or use the root Makefile once and reuse:
-
-```bash
-make setup
-make dev        # backend + web dev servers
-make test       # all backend + web checks
 ```
 
 ## Environment
 
-Copy the template and fill in real values:
+All configuration uses the `REACH_` prefix. Copy
+[`backend/.env.example`](../backend/.env.example) → `backend/.env`.
+**Never commit real keys.**
 
-```bash
-cp .env.example .env
-```
+| Variable | Purpose | Default / notes |
+| --- | --- | --- |
+| `REACH_LLM_API_KEY` | LLM provider key | empty |
+| `REACH_LLM_BASE_URL` | OpenAI-compatible base URL | `https://api.openai.com/v1` |
+| `REACH_LLM_MODEL` | Model name | `gpt-4o-mini` |
+| `REACH_SEARCH_API_KEY` | Tavily (or configured) key | empty |
+| `REACH_SEARCH_PROVIDER` | Search backend id | `tavily` |
+| `REACH_SEARCH_RESULTS_PER_QUERY` | Results per planned query | `10` |
+| `REACH_SEARCH_MAX_QUERIES` | Upper bound on queries | `7` |
+| `REACH_MOCK_MODE` | `off` \| `mock` | `off` |
+| `REACH_DATABASE_PATH` | SQLite path (rel. to backend) | `../data/reach.db` |
+| `REACH_FETCH_MAX_BYTES` | Fetch body cap | `300000` |
+| `REACH_FETCH_TIMEOUT_SECONDS` | Per-fetch timeout | `15` |
+| `REACH_CORS_ORIGINS` | Comma-separated origins | Vite localhost ports |
 
-`REACH_*` variables are documented in
-[`backend/.env.example`](../backend/.env.example) and
-[`backend/README.md`](../backend/README.md). Real keys must never be
-committed.
+Settings load in `backend/app/config.py` via pydantic-settings.
 
 ## Running the backend
 
@@ -55,32 +76,34 @@ cd backend
 REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
-- Mock mode runs the whole pipeline without keys (deterministic mock LLM,
-  mock search, and a mock fetch transport).
-- With real keys set, drop `REACH_MOCK_MODE` and run normally.
+- Mock mode: deterministic mock LLM + mock search + mock fetch transport.
+- Real mode: set keys, leave `REACH_MOCK_MODE=off` (or unset).
 
-Available routes:
+Useful URLs:
 
-- `GET /api/health`
-- `POST /api/research` → `{"session_id": "..."}`
-- `GET /api/research/{id}/status`
-- `GET /api/research/{id}` (full workspace payload incl. report)
-- `GET /api/research/{id}/report` (markdown)
-- `POST /api/research/{id}/compare` (similarities/differences/contradictions)
-- `GET /api/research/{id}/comparisons`
-- `GET /api/research/{id}/workspace` (`?starred=` / `?saved=`)
-- `PATCH /api/research/{id}/sources/{source_id}` (star/save/tag/note)
-- `POST /api/research/{id}/sources/{source_id}/summarize`
-- Interactive docs: `http://localhost:8000/docs`
+- API: `http://localhost:8000`
+- OpenAPI: `http://localhost:8000/docs`
+- Health: `GET /api/health`
 
-The provided launcher (`../scripts/dev.sh backend`) automates venv setup and
-the uvicorn command.
+## Running the web app
 
-## Trying it end-to-end (no keys)
+```bash
+cd apps/web
+npm run dev          # http://localhost:5173 — proxies /api → :8000
+npm run lint         # oxlint
+npm run build        # tsc -b && vite build
+npm run preview      # serve production bundle
+```
+
+Routes: `/` (Home), `/research/:id` (session workspace). See
+[`apps/web/README.md`](../apps/web/README.md).
+
+## End-to-end curl (mock)
 
 ```bash
 cd backend
 REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --port 8000 &
+
 SID=$(curl -s -X POST localhost:8000/api/research \
   -H 'Content-Type: application/json' \
   -d '{"objective":"I want to build a privacy-focused search engine using Rust. Find relevant research papers, existing search projects, indexing libraries, documentation, and technologies."}' \
@@ -93,64 +116,61 @@ curl -s localhost:8000/api/research/$SID | python3 -m json.tool | head -60
 
 ## Development workflow
 
-1. Work on a feature branch: `git checkout -b feat/<name>`.
-2. Implement the smallest complete piece.
-3. Run the checks (below).
-4. Commit, then merge with `--no-ff` after the feature works.
+1. Branch from current mainline: `git checkout -b feat/<name>` (or `docs/…`).
+2. Implement the smallest complete vertical slice.
+3. Run checks (`make test` or targeted pytest / npm scripts).
+4. Update docs under `docs/` when behavior or contracts change.
+5. Commit; merge with review as appropriate.
 
-### Running the tests
+### Docs-only changes
 
-```bash
-# backend
-cd backend && .venv/bin/python -m pytest -q
-cd backend && .venv/bin/python -m pyflakes app/ tests/
+Only modify files under `docs/` (and project READMEs when intentionally
+updating operator-facing copy). Do not mix unrelated application changes into
+documentation commits.
 
-# web
-cd apps/web && npm run lint && npm run build
+## Project map (where to edit)
 
-# everything at once
-make test
-```
+| Concern | Location |
+| --- | --- |
+| HTTP routes | `backend/app/api/routes/research.py` |
+| Pipeline orchestration | `backend/app/services/research_service.py` |
+| Agents | `backend/app/agent/` |
+| Prompts | `backend/app/llm/prompts.py` |
+| Models | `backend/app/models/` |
+| SQLite | `backend/app/storage/` |
+| Web API client | `apps/web/src/lib/api.ts` |
+| UI pages | `apps/web/src/pages/` |
+| Research components | `apps/web/src/components/research/` |
 
-The backend suite covers model validation, storage, search
-normalization/dedup, source classification/parsing/fetching, the LLM layer,
-planner, researcher, synthesizer, comparator, report writer, workspace
-operations, the research service, and the full API workflow (all hermetic —
-no network or keys required).
+## Code style expectations
 
-### Test layout
+- Prefer typed Pydantic / TypeScript contracts at boundaries.
+- Deterministic logic before LLM calls.
+- Every new LLM stage needs a deterministic fallback + tests.
+- Keep research bounded (queries/sources/content caps).
+- Do not introduce Redis/Celery/vector DB without an explicit product decision.
 
-```
-backend/tests/
-├── test_models.py           Pydantic schema validation
-├── test_storage.py          SQLite schema + repository round-trips
-├── test_search.py           URL normalization, dedup, mock provider
-├── test_sources.py          classifier, parser, bounded fetcher
-├── test_llm.py              JSON parsing, retries, mock LLM
-├── test_planner.py          query generation + fallback
-├── test_agent.py            selection, discovery, fetch/analyze
-├── test_synthesizer.py      provenance mapping + fallback
-├── test_comparator.py       pairwise comparison
-├── test_report_writer.py    markdown report generation + fallback
-├── test_research_service.py service pipeline + failure paths
-└── test_api.py              full API workflow (mock mode)
-```
+## Perf notes
 
-## Known limitations
+- Providers/fetchers are created per run and scoped/closed with the task.
+- Session-local fetch cache avoids duplicate GETs for the same URL.
+- LLM inputs are truncated to content budgets before calls.
+- Fetch/analyze concurrency is semaphore-limited (default 5).
+- Concurrent research starts are capped (`MAX_CONCURRENT_RUNS = 16`).
 
-- Real research requires live API keys; everything else (CI, demo,
-  frontend work) can run in `REACH_MOCK_MODE=mock`.
-- Fetching supports HTML/plain text; JavaScript-heavy pages and many PDFs
-  yield thin content. Sessions degrade gracefully and surface the failure
-  per source.
-- The prototype persists only session-local data in SQLite; there is no
-  permanent corpus, vector index, or multi-user system.
-- Research is bounded by design: ≤7 queries, ≤15 sources, one analysis
-  pass. This keeps runs responsive and API costs small, not exhaustive.
+## Troubleshooting
 
-## Perf considerations
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| CORS errors from Vite | Origin not in `REACH_CORS_ORIGINS` | Add origin or use `/api` proxy |
+| 429 on `POST /api/research` | Too many in-flight runs | Wait for completion or restart process |
+| Empty/thin analyses | Fetch failed / JS-only page / PDF | Check `fetch_status`; expect degradation |
+| Tests need network | Mock mode not set in fixture | Use `Settings(mock_mode="mock")` / providers |
+| Stale DB schema | Old file missing columns | Restart app (`init_db` migrations) or `make clean` |
 
-- Providers and fetchers are created per research run and closed/scoped in
-  the run task; the session-local fetch cache prevents duplicate fetches.
-- All LLM inputs are truncated to a bounded content budget before calls.
-- Fetches and analyses run concurrently under a small semaphore.
+## Related docs
+
+- [testing.md](testing.md) — suites and smoke tests  
+- [deployment.md](deployment.md) — run modes and packaging  
+- [api.md](api.md) — HTTP contract  
+- [limitations.md](limitations.md) — known bounds  
