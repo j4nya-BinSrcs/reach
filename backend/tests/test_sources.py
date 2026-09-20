@@ -34,6 +34,27 @@ class TestClassifier:
     def test_title_heuristic_when_domain_is_neutral(self) -> None:
         assert classify_source("https://example.com/package", "Official Documentation") is SourceType.DOCUMENTATION
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://arxiv.org/abs/2301.01330",
+            "https://ieeexplore.ieee.org/document/12345",
+            "https://www.semanticscholar.org/paper/abc",
+            "https://link.springer.com/article/10.1007/s00000-000-00000-0",
+            "https://www.nature.com/articles/s00000-000-00000-0",
+            "https://www.science.org/doi/10.1126/science.abc123",
+            "https://pubmed.ncbi.nlm.nih.gov/12345678/",
+            "https://www.jstor.org/stable/1234567",
+            "https://openreview.net/forum?id=abcd1234",
+            "https://doaj.org/article/abcdef",
+            "https://core.ac.uk/download/12345678.pdf",
+            "https://dblp.org/rec/conf/icml/Foo2024.html",
+        ],
+        ids=["arxiv", "ieee", "semanticscholar", "springer", "nature", "science", "pubmed", "jstor", "openreview", "doaj", "core", "dblp"],
+    )
+    def test_classifies_trusted_academic_domains_as_papers(self, url: str) -> None:
+        assert classify_source(url, "Some paper") is SourceType.PAPER
+
 
 class TestParser:
     def test_parses_html(self) -> None:

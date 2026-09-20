@@ -15,7 +15,7 @@ import logging
 from pydantic import BaseModel
 
 from app.llm.base import LLMProvider
-from app.models.source import Source, SourceFetchStatus
+from app.models.source import Source, SourceFetchStatus, SourceType
 from app.search.base import SearchProvider
 from app.search.models import SearchQuery, SearchResult
 from app.search.utils import dedupe_results, extract_domain, normalize_url
@@ -54,9 +54,24 @@ _HIGH_QUALITY_DOMAINS = {
     "crates.io",
     "readthedocs.io",
     "developer.mozilla.org",
+    "docs.python.org",
+    "learn.microsoft.com",
     "semanticscholar.org",
     "acm.org",
     "ieee.org",
+    "ieeexplore.ieee.org",
+    "sciencedirect.com",
+    "springer.com",
+    "openreview.net",
+    "nature.com",
+    "science.org",
+    "pubmed.ncbi.nlm.nih.gov",
+    "ncbi.nlm.nih.gov",
+    "jstor.org",
+    "doaj.org",
+    "core.ac.uk",
+    "dblp.org",
+    "scholar.google.com",
 }
 
 _STOPWORDS = {
@@ -116,7 +131,8 @@ class SourceSelector:
         type_score = _TYPE_QUALITY.get(source.source_type.value, 0.4)
         domain_score = 1.0 if source.domain in _HIGH_QUALITY_DOMAINS else 0.5
         overlap = _token_overlap(objective, f"{source.title} {source.snippet}")
-        return max(0.0, min(1.0, 0.4 * provider_score + 0.25 * type_score + 0.15 * domain_score + 0.2 * overlap))
+        academic_boost = 0.15 if source.source_type is SourceType.PAPER else 0.0
+        return max(0.0, min(1.0, 0.4 * provider_score + 0.25 * type_score + 0.15 * domain_score + 0.2 * overlap + academic_boost))
 
 
 class Researcher:

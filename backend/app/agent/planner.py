@@ -30,6 +30,7 @@ class Planner:
 
     MIN_QUERIES = 3
     DEFAULT_MAX_QUERIES = 7
+    ACADEMIC_MARKERS = ("arxiv", "paper", "research paper", "scholar", "academic", "literature")
 
     def __init__(self, llm: LLMProvider, max_queries: int = DEFAULT_MAX_QUERIES) -> None:
         self._llm = llm
@@ -47,6 +48,8 @@ class Planner:
             logger.warning("planner failed (%s); using fallback queries", exc)
             queries = self._fallback_queries(objective)
 
+        queries = self._ensure_academic_query(queries, objective)
+
         return [SearchQuery(query=query, dimension=DIMENSIONS[i % len(DIMENSIONS)]) for i, query in enumerate(queries)]
 
     def _clean(self, queries: list[str]) -> list[str]:
@@ -63,13 +66,36 @@ class Planner:
                 break
         return cleaned
 
+    def _ensure_academic_query(self, queries: list[str], objective: str) -> list[str]:
+        """Guarantee at least one query targets academic/primary literature."""
+        if any(marker in query.lower() for query in queries for marker in self.ACADEMIC_MARKERS):
+            return queries
+        topic = self._topic_clause(objective)
+        academic = f"{topic} research papers, arXiv, and academic literature"
+        if len(queries) >= self._max_queries:
+            queries = queries[:-1]
+        return [*queries, academic]
+
+    @staticmethod
+    def _topic_clause(objective: str) -> str:
+        """A compact topical clause reused across fallback queries."""
+        text = objective.strip().rstrip(".!? ")
+        prefixes = ("i want to ", "i'd like to ", "please ", "help me ")
+        lowered = text.lower()
+        for prefix in prefixes:
+            if lowered.startswith(prefix):
+                text = text[len(prefix):].strip().capitalize()
+                break
+        if len(text) > 140:
+            text = text[:140].rsplit(" ", 1)[0]
+        return text
+
     @staticmethod
     def _fallback_queries(objective: str) -> list[str]:
         """Deterministic queries used when the LLM planner is unavailable."""
-        base = objective.strip().rstrip(".!? ")
+        base = Planner._topic_clause(objective)
         return [
-            base,
-            f"{base} research papers",
-            f"{base} existing implementations",
-            f"{base} documentation",
+            f"{base} research papers, arXiv, and academic literature",
+            f"{base} existing implementations and open source projects",
+            f"{base} documentation and technical guides",
         ]

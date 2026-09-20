@@ -7,6 +7,27 @@ LLM involvement, so most sources never consume model tokens.
 from app.models.source import SourceType
 from app.search.utils import extract_domain
 
+_ACADEMIC_DOMAINS = (
+    "arxiv.org",
+    "acm.org",
+    "ieee.org",
+    "ieeexplore.ieee.org",
+    "sciencedirect.com",
+    "springer.com",
+    "nature.com",
+    "science.org",
+    "semanticscholar.org",
+    "openreview.net",
+    "pubmed.ncbi.nlm.nih.gov",
+    "ncbi.nlm.nih.gov",
+    "jstor.org",
+    "doaj.org",
+    "core.ac.uk",
+    "researchgate.net",
+    "dblp.org",
+    "scholar.google.com",
+)
+
 
 def classify_source(url: str, title: str = "") -> SourceType:
     """Return a :class:`SourceType` based on deterministic signals."""
@@ -15,9 +36,7 @@ def classify_source(url: str, title: str = "") -> SourceType:
     lowered_title = title.strip().lower()
 
     # --- academic papers -----------------------------------------------------
-    if domain.endswith("arxiv.org") or "arxiv" in domain:
-        return SourceType.PAPER
-    if any(marker in domain for marker in (".acm.org", "ieee.org", "sciencedirect.com", "springer.com", ".semanticscholar.org")):
+    if any(marker in domain for marker in _ACADEMIC_DOMAINS):
         return SourceType.PAPER
 
     # --- code hosting ---------------------------------------------------------
