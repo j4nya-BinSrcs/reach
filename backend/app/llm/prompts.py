@@ -17,8 +17,11 @@ Your job is to decompose a user's research objective into a focused set of searc
 A good research plan:
 - Covers multiple dimensions (core concept, existing implementations, academic
   literature, technical material, tools/libraries, benchmarks, limitations/privacy).
+- ALWAYS includes at least one query targeting peer-reviewed and primary sources:
+  research papers, arXiv, IEEE/ACM/Springer/Nature, semanticscholar.org, and similar.
+- Uses precise, search-engine-friendly wording, including site: filters or trusted
+  domain hints where they help surface authoritative material.
 - Avoids seven near-identical queries.
-- Uses precise, search-engine-friendly wording.
 - Stays grounded in the objective; do not invent an unrelated agenda.
 
 Return ONLY a JSON object with a single key "queries" holding 5 to 7 search query strings."""

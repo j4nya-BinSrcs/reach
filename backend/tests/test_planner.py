@@ -56,15 +56,27 @@ class TestPlanner:
         provider = ScriptedPlannerLLM(queries=["   ", "", "A", "a", "B", "C", "D", "E", "F", "G", "H"])
         planner = Planner(llm=provider, max_queries=5)
         queries = await planner.plan(objective)
-        assert [query.query for query in queries] == ["A", "B", "C", "D", "E"]
+        assert len(queries) == 5
+        assert [query.query for query in queries[:4]] == ["A", "B", "C", "D"]
+        assert "research papers" in queries[-1].query.lower() or "arxiv" in queries[-1].query.lower()
         assert all(query.dimension for query in queries)
+
+    @pytest.mark.asyncio
+    async def test_always_includes_academic_query(self, objective: str) -> None:
+        provider = ScriptedPlannerLLM(queries=["A", "B", "C", "D"])
+        queries = await Planner(llm=provider, max_queries=5).plan(objective)
+        text = " | ".join(query.query.lower() for query in queries)
+        assert any(marker in text for marker in Planner.ACADEMIC_MARKERS)
+        assert len(queries) <= 5
 
     @pytest.mark.asyncio
     async def test_falls_back_on_llm_failure(self, objective: str) -> None:
         planner = Planner(llm=ScriptedPlannerLLM(fail=True))
         queries = await planner.plan(objective)
         assert len(queries) >= planner.MIN_QUERIES
-        assert queries[0].query == objective
+        text = " | ".join(query.query.lower() for query in queries)
+        assert any(marker in text for marker in Planner.ACADEMIC_MARKERS)
+        assert "privacy-focused search engine" in text
 
     @pytest.mark.asyncio
     async def test_falls_back_on_malformed_output(self, objective: str) -> None:
