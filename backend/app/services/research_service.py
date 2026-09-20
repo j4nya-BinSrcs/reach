@@ -8,12 +8,13 @@ Research runs are lightweight in-process ``asyncio`` tasks — no workers.
 import asyncio
 import logging
 
+from app.agent.comparator import SourceComparator
 from app.agent.planner import Planner
 from app.agent.researcher import Researcher
 from app.agent.synthesizer import Synthesizer
 from app.config import Settings
 from app.llm.provider import build_llm_provider
-from app.models.finding import ResearchSynthesis
+from app.models.finding import ResearchSynthesis, SourceComparison, SourceComparisonResult
 from app.models.research import (
     ProgressUpdate,
     ResearchSession,
@@ -24,7 +25,12 @@ from app.models.source import Source, SourceFetchStatus
 from app.search.provider import build_search_provider
 from app.sources.fetcher import SourceFetcher
 from app.storage.database import init_db
-from app.storage.repositories import FindingRepository, SessionRepository, SourceRepository
+from app.storage.repositories import (
+    ComparisonRepository,
+    FindingRepository,
+    SessionRepository,
+    SourceRepository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +66,7 @@ class ResearchService:
         self._sessions = SessionRepository(db)
         self._sources = SourceRepository(db)
         self._findings = FindingRepository(db)
+        self._comparisons = ComparisonRepository(db)
         self._runs: dict[str, asyncio.Task] = {}
 
     # --- read/write helpers --------------------------------------------------
@@ -91,6 +98,7 @@ class ResearchService:
         findings = self._findings.get_findings(session_id)
         gaps = self._findings.get_gaps(session_id)
         synthesis = self._sessions.get_synthesis(session_id)
+        comparisons = self._comparisons.get_comparisons(session_id)
         return ResearchSessionDetail(
             **session.model_dump(),
             queries=self._sessions.get_queries(session_id),
@@ -98,7 +106,42 @@ class ResearchService:
             findings=[finding.model_dump() for finding in findings],
             gaps=[gap.model_dump() for gap in gaps],
             summary=synthesis.model_dump() if synthesis else {},
+            comparisons=[comparison.model_dump() for comparison in comparisons],
         )
+
+    async def compare_sources(self, session_id: str, source_a_id: int, source_b_id: int) -> SourceComparison:
+        """Run and persist a pairwise comparison of two session sources."""
+        session = self._sessions.get_session(session_id)
+        if session is None:
+            raise ValueError("Research session not found")
+        source_a = self._sources.get_source(session_id, source_a_id)
+        source_b = self._sources.get_source(session_id, source_b_id)
+        if source_a is None or source_b is None:
+            raise ValueError("One or both sources do not belong to this session")
+
+        settings = self._settings
+        llm = build_llm_provider(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            base_url=settings.llm_base_url,
+            mock_mode=settings.mock_mode,
+        )
+        try:
+            result: SourceComparisonResult = await SourceComparator(llm=llm).compare(session.objective, source_a, source_b)
+        finally:
+            await llm.close()
+
+        comparison = SourceComparison(
+            session_id=session_id,
+            source_a_id=source_a_id,
+            source_b_id=source_b_id,
+            result=result,
+        )
+        comparison.id = self._comparisons.add_comparison(comparison)
+        return comparison
+
+    def get_comparisons(self, session_id: str) -> list[SourceComparison]:
+        return self._comparisons.get_comparisons(session_id)
 
     # --- pipeline ------------------------------------------------------------
 

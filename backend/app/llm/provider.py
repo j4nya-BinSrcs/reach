@@ -86,6 +86,9 @@ class MockLLMProvider(LLMProvider):
             return response_model.model_validate(result)
         return result
 
+    async def close(self) -> None:
+        """Nothing to release for the in-memory mock provider."""
+
 
 def _mock_structured(system: str, user: str, response_model):
     """Build a default mock instance for any Pydantic model."""

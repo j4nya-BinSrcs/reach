@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from app.models.finding import Finding, ResearchGap, ResearchSynthesis
+from app.models.finding import ComparisonPoint, Finding, ResearchGap, ResearchSynthesis, SourceComparison, SourceComparisonResult
 from app.models.research import SessionStatus
 from app.models.source import Source, SourceAnalysis, SourceFetchStatus, SourceType
 from app.storage.database import init_db
-from app.storage.repositories import FindingRepository, SessionRepository, SourceRepository
+from app.storage.repositories import ComparisonRepository, FindingRepository, SessionRepository, SourceRepository
 
 
 class TestDatabase:
@@ -154,3 +154,47 @@ class TestFindingRepository:
         fetched = finding_repo.get_gaps(session_id)
         assert len(fetched) == 1
         assert "distributed indexing" in fetched[0].question
+
+
+class TestComparisonRepository:
+    def test_comparison_roundtrip(self, db_path: Path, session_id: str) -> None:
+        source_repo = SourceRepository(db_path)
+        (a_id,) = source_repo.add_sources(
+            session_id,
+            [Source(session_id=session_id, url="https://arxiv.org/abs/1", title="Paper A", source_type=SourceType.PAPER)],
+        )
+        (b_id,) = source_repo.add_sources(
+            session_id,
+            [Source(session_id=session_id, url="https://arxiv.org/abs/2", title="Paper B", source_type=SourceType.PAPER)],
+        )
+
+        repo = ComparisonRepository(db_path)
+        comparison_id = repo.add_comparison(
+            SourceComparison(
+                session_id=session_id,
+                source_a_id=a_id,
+                source_b_id=b_id,
+                result=SourceComparisonResult(
+                    overview="Two surveys.",
+                    similarities=[ComparisonPoint(statement="Both survey indexing.")],
+                    differences=[],
+                    contradictions=[],
+                    complementarity_notes="One covers inverted indexes, one covers LSM trees.",
+                ),
+            )
+        )
+
+        fetched = repo.get_comparisons(session_id)
+        assert len(fetched) == 1
+        assert fetched[0].id == comparison_id
+        assert fetched[0].source_a_id == a_id
+        assert fetched[0].source_b_id == b_id
+        assert fetched[0].result.similarities[0].statement == "Both survey indexing."
+
+        direct = repo.get_comparison(session_id, comparison_id)
+        assert direct is not None
+        assert "LSM trees" in direct.result.complementarity_notes
+
+    def test_empty_when_none(self, db_path: Path, session_id: str) -> None:
+        repo = ComparisonRepository(db_path)
+        assert repo.get_comparisons(session_id) == []

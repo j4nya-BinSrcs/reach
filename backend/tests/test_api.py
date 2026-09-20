@@ -97,3 +97,40 @@ class TestResearchLifecycle:
         fetch_statuses = {source["fetch_status"] for source in detail["sources"]}
         assert fetch_statuses  # sources exist
         assert fetch_statuses <= {"fetched", "partial", "failed", "pending"}
+
+
+class TestCompareSources:
+    def _completed_session(self, client: TestClient) -> tuple[str, list[dict]]:
+        response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
+        assert response.status_code == 201
+        session_id = response.json()["session_id"]
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            update = client.get(f"/api/research/{session_id}/status").json()
+            if update["status"] in {"complete", "failed"}:
+                break
+            time.sleep(0.05)
+        detail = client.get(f"/api/research/{session_id}").json()
+        return session_id, detail["sources"]
+
+    def test_compare_two_sources(self, client: TestClient) -> None:
+        session_id, sources = self._completed_session(client)
+        if len(sources) < 2:
+            pytest.skip("mock run surfaced fewer than two sources")
+        a, b = sources[0]["id"], sources[1]["id"]
+        response = client.post(f"/api/research/{session_id}/compare", json={"source_a_id": a, "source_b_id": b})
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["source_a_id"] == a
+        assert payload["source_b_id"] == b
+        assert isinstance(payload["result"]["overview"], str)
+
+    def test_compare_rejects_sources_not_in_session(self, client: TestClient) -> None:
+        session_id, sources = self._completed_session(client)
+        a = sources[0]["id"] if sources else 1
+        response = client.post(f"/api/research/{session_id}/compare", json={"source_a_id": a, "source_b_id": 999999})
+        assert response.status_code == 404
+
+    def test_list_comparisons(self, client: TestClient) -> None:
+        session_id, sources = self._completed_session(client)
+        assert client.get(f"/api/research/{session_id}/comparisons").json() == []

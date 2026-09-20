@@ -1,15 +1,24 @@
-"""Research API endpoints: start, status, and full-session retrieval."""
+"""Research API endpoints: start, status, full-session retrieval, comparisons."""
 
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
+from pydantic import BaseModel, Field
 
+from app.models.finding import SourceComparison
 from app.models.research import ProgressUpdate, ResearchSessionDetail, StartResearchRequest
 from app.services.research_service import ResearchService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/research", tags=["research"])
+
+
+class CompareSourcesRequest(BaseModel):
+    """Request body for comparing two sources of a session."""
+
+    source_a_id: int = Field(..., ge=1)
+    source_b_id: int = Field(..., ge=1)
 
 
 def _service(request: Request) -> ResearchService:
@@ -42,3 +51,18 @@ async def get_research_session(session_id: str, request: Request) -> ResearchSes
     if detail is None:
         raise HTTPException(status_code=404, detail="Research session not found")
     return detail
+
+
+@router.post("/{session_id}/compare", response_model=SourceComparison)
+async def compare_sources(session_id: str, payload: CompareSourcesRequest, request: Request) -> SourceComparison:
+    """Compare two sources of a session: similarities, differences, contradictions."""
+    try:
+        return await _service(request).compare_sources(session_id, payload.source_a_id, payload.source_b_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/{session_id}/comparisons", response_model=list[SourceComparison])
+async def list_comparisons(session_id: str, request: Request) -> list[SourceComparison]:
+    """List all persisted comparisons for a session."""
+    return _service(request).get_comparisons(session_id)

@@ -68,3 +68,4 @@ class ResearchSessionDetail(ResearchSession):
     findings: list = Field(default_factory=list)
     gaps: list = Field(default_factory=list)
     summary: dict = Field(default_factory=dict)
+    comparisons: list = Field(default_factory=list)
