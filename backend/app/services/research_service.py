@@ -10,11 +10,13 @@ import logging
 
 from app.agent.comparator import SourceComparator
 from app.agent.planner import Planner
+from app.agent.report_writer import ReportWriter
 from app.agent.researcher import Researcher
 from app.agent.synthesizer import Synthesizer
 from app.config import Settings
 from app.llm.provider import build_llm_provider
 from app.models.finding import ResearchSynthesis, SourceComparison, SourceComparisonResult
+from app.models.report import ResearchReport
 from app.models.research import (
     ProgressUpdate,
     ResearchSession,
@@ -99,6 +101,7 @@ class ResearchService:
         gaps = self._findings.get_gaps(session_id)
         synthesis = self._sessions.get_synthesis(session_id)
         comparisons = self._comparisons.get_comparisons(session_id)
+        report = self._sessions.get_report(session_id)
         return ResearchSessionDetail(
             **session.model_dump(),
             queries=self._sessions.get_queries(session_id),
@@ -107,6 +110,7 @@ class ResearchService:
             gaps=[gap.model_dump() for gap in gaps],
             summary=synthesis.model_dump() if synthesis else {},
             comparisons=[comparison.model_dump() for comparison in comparisons],
+            report=report.model_dump() if report else None,
         )
 
     async def compare_sources(self, session_id: str, source_a_id: int, source_b_id: int) -> SourceComparison:
@@ -142,6 +146,9 @@ class ResearchService:
 
     def get_comparisons(self, session_id: str) -> list[SourceComparison]:
         return self._comparisons.get_comparisons(session_id)
+
+    def get_report(self, session_id: str) -> ResearchReport | None:
+        return self._sessions.get_report(session_id)
 
     # --- pipeline ------------------------------------------------------------
 
@@ -212,6 +219,10 @@ class ResearchService:
         sources_with_ids = self._sources.get_sources(session_id)
         findings, gaps, synthesis = await Synthesizer(llm=llm).synthesize(objective, sources_with_ids)
         await asyncio.to_thread(self._persist_synthesis, session_id, findings, gaps, synthesis)
+
+        # REPORT
+        report = await ReportWriter(llm=llm).write(objective, sources_with_ids, findings, gaps, synthesis)
+        await asyncio.to_thread(self._sessions.save_report, session_id, report)
 
         await self._set(session_id, SessionStatus.COMPLETE)
         logger.info("research session %s complete (%d sources)", session_id, stats.selected)
