@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Star, Bookmark, Sparkles } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Source, SourceAnalysis } from '../../types/source';
+import type { Source } from '../../types/source';
 import { SourceBadge } from './SourceBadge';
+import { SourceSummaryModal } from './SourceSummaryModal';
 import { ExternalLink } from '../common/ExternalLink';
 import { formatSourceIndex } from '../../lib/utils';
-import { summarizeSource, updateSourceWorkspace } from '../../lib/api';
+import { updateSourceWorkspace } from '../../lib/api';
 
 const compactBtn: React.CSSProperties = {
   background: 'transparent',
@@ -30,11 +31,14 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
   const [tagInput, setTagInput] = useState(source.tags.join(', '));
   const [noteInput, setNoteInput] = useState(source.note);
   const [editingNote, setEditingNote] = useState(false);
-  const [customSummary, setCustomSummary] = useState<SourceAnalysis | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const isPartial = source.fetch_status === 'partial';
   const isFailed  = source.fetch_status === 'failed';
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['research-session', sessionId] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['research-session', sessionId] });
+    queryClient.invalidateQueries({ queryKey: ['workspace', sessionId] });
+  };
 
   const starMutation = useMutation({
     mutationFn: (starred: boolean) => updateSourceWorkspace(sessionId, source.id, { starred }),
@@ -54,11 +58,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
   const noteMutation = useMutation({
     mutationFn: (note: string) => updateSourceWorkspace(sessionId, source.id, { note }),
     onSuccess: refresh,
-  });
-
-  const summarizeMutation = useMutation({
-    mutationFn: () => summarizeSource(sessionId, source.id),
-    onSuccess: (analysis) => setCustomSummary(analysis),
   });
 
   return (
@@ -233,8 +232,7 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
           <button
             title="Summarize this source"
             aria-label="Summarize this source"
-            onClick={() => summarizeMutation.mutate()}
-            disabled={summarizeMutation.isPending}
+            onClick={() => setSummaryOpen(true)}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -243,9 +241,9 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
               height: '30px',
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
-              background: summarizeMutation.isPending ? 'var(--surface-elevated)' : 'transparent',
-              color: summarizeMutation.isPending ? 'var(--text-subtle)' : 'var(--accent)',
-              cursor: summarizeMutation.isPending ? 'wait' : 'pointer',
+              background: 'transparent',
+              color: 'var(--accent)',
+              cursor: 'pointer',
             }}
           >
             <Sparkles size={14} aria-hidden="true" />
@@ -438,33 +436,6 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
       {/* Analysis */}
       {source.analysis ? (
         <>
-          {/* Requested summary */}
-          {customSummary && (
-            <div>
-              <p className="label" style={{ marginBottom: '0.375rem', color: 'var(--green)' }}>
-                Focused summary
-              </p>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-                {customSummary.summary}
-              </p>
-              {customSummary.key_points.length > 0 && (
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.375rem', marginTop: '0.5rem' }}>
-                  {customSummary.key_points.map((p, i) => (
-                    <li key={i} style={{ display: 'flex', gap: '0.625rem', fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                      <span aria-hidden="true" style={{ marginTop: '0.5rem', width: '4px', height: '4px', borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {customSummary.limitations.length > 0 && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--amber)', marginTop: '0.5rem' }}>
-                  {customSummary.limitations.join(' ')}
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Why relevant */}
           <div>
             <p className="label" style={{ marginBottom: '0.375rem' }}>
@@ -632,6 +603,15 @@ export function SourceCard({ source, index, sessionId }: SourceCardProps) {
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.6, fontStyle: 'italic' }}>
           {source.snippet}
         </p>
+      )}
+
+      {/* Focused summary modal */}
+      {summaryOpen && (
+        <SourceSummaryModal
+          sessionId={sessionId}
+          source={source}
+          onClose={() => setSummaryOpen(false)}
+        />
       )}
     </article>
   );

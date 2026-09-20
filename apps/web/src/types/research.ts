@@ -91,6 +91,19 @@ export interface ResearchSession {
   report: ResearchReport | null;
 }
 
+export interface SessionSummary {
+  id: string;
+  objective: string;
+  status: ResearchStatus;
+  progress: number;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+  sources_count: number;
+  findings_count: number;
+  gaps_count: number;
+}
+
 export interface StartResearchResponse {
   session_id: string;
 }

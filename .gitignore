@@ -29,6 +29,8 @@ dist/
 .cache/
 apps/web/dist/
 apps/web/.vite/
+apps/web/test-results/
+apps/web/playwright-report/
 
 # OS / editor
 .DS_Store

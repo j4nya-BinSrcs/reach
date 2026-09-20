@@ -1,4 +1,5 @@
 import { ResearchInput } from '../components/research/ResearchInput';
+import { SessionHistoryList } from '../components/research/SessionHistoryList';
 import { useResearch } from '../hooks/useResearch';
 
 export function Home() {
@@ -230,6 +231,24 @@ export function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Recent research — session history from the live backend */}
+      <section
+        aria-label="Recent research"
+        style={{
+          borderTop: '1px solid var(--border)',
+          padding: '3rem 1.5rem',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+          <p className="label" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+            Recent research
+          </p>
+          <SessionHistoryList limit={8} />
         </div>
       </section>
 

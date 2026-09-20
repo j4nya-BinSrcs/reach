@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useResearchSession } from '../hooks/useResearchSession';
 import { ResearchProgress } from '../components/research/ResearchProgress';
@@ -181,6 +181,36 @@ export function ResearchSession() {
       <Section id="sources" title="Sources" count={session.sources.length}>
         {session.sources.length > 0 ? (
           <>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <Link
+                to={`/research/${session.id}/workspace`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4375rem',
+                  fontSize: '0.8125rem',
+                  color: 'var(--accent)',
+                  textDecoration: 'none',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.4375rem 0.875rem',
+                  background: 'var(--surface)',
+                  transition: 'background 0.15s ease, border-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = 'var(--surface-elevated)';
+                  el.style.borderColor = 'var(--border-strong)';
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = 'var(--surface)';
+                  el.style.borderColor = 'var(--border)';
+                }}
+              >
+                Open workspace
+              </Link>
+            </div>
             <SourceList sessionId={session.id} sources={session.sources} />
             <div style={{ marginTop: '2.5rem' }}>
               <SourceComparisonPanel

@@ -87,6 +87,13 @@ reach/
 - **Workspace** — star/save sources, tag them, add notes, and summarize a
   single source on demand.
 - **Progress API** — status is persisted and pollable end-to-end.
+- **Session history** — completed runs are listed on the home page with
+  per-session source/finding/gap counts.
+- **Dedicated workspace page** — browse, star, save, tag, and annotate the
+  sources of any session with a filtered view.
+- **Summarize modal** — a focused analysis of any single source on demand.
+- **Comparison history** — past pairwise comparisons are persisted and
+  rendered with their source titles.
 - **Mock mode** — the entire pipeline runs keylessly for demo and CI.
 
 ## Project structure
@@ -95,11 +102,12 @@ reach/
 apps/web/
 ├── src/
 │   ├── components/      common layout · research (input, progress,
-│   │                    summary, sources, report, comparison)
+│   │                    summary, sources, report, comparison) · modals
 │   ├── hooks/           TanStack Query hooks (session, sources)
-│   ├── lib/             api client + normalization layer · constants · utils
-│   ├── pages/           Home · ResearchSession
+│   ├── lib/             api client · normalizers (pure, unit-tested) · constants · utils
+│   ├── pages/           Home · ResearchSession · Workspace
 │   └── types/           research · source view contracts
+├── e2e/                 Playwright browser tests (driven via scripts/launch.sh)
 └── vite.config.ts       /api → localhost:8000 dev proxy
 
 backend/
@@ -114,7 +122,7 @@ backend/
 │   ├── storage/        SQLite schema + repositories
 │   ├── config.py       settings (REACH_* env)
 │   └── main.py         app factory
-├── tests/             151 tests, hermetic
+├── tests/             156 tests, hermetic
 └── README.md          backend README
 ```
 
@@ -126,6 +134,8 @@ Everything is wired through the `Makefile` and `scripts/`:
 make setup            # backend venv + web deps (once)
 make dev              # backend (:8000) + web dev server (:5173) side by side
 make test             # backend pytest + lint, then web lint + typecheck + build
+make test-unit        # web unit tests (vitest), then backend pytest + pyflakes
+make test-e2e         # boot the product via launch.sh and drive it with a headless browser
 ```
 
 Backend alone (see [backend/README.md](backend/README.md) and
@@ -148,6 +158,8 @@ workspace → summarize):
 ```bash
 ./scripts/launch.sh                    # full stack + smoke test
 REACH_BACKEND_ONLY=1 ./scripts/launch.sh   # backend API smoke test only
+RUN_E2E=1 ./scripts/launch.sh              # + browser E2E (Playwright), then shut down
+make test-e2e                              # equivalent to RUN_E2E=1 ./scripts/launch.sh
 ```
 
 ## API
@@ -155,21 +167,62 @@ REACH_BACKEND_ONLY=1 ./scripts/launch.sh   # backend API smoke test only
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `POST` | `/api/research` | Start research from an objective |
+| `GET` | `/api/research` | List sessions (newest first), with `?status=` `?limit=` `?exclude_in_progress=` |
 | `GET` | `/api/research/{id}/status` | Poll progress (planning → … → complete/failed) |
 | `GET` | `/api/research/{id}` | Full workspace payload (queries, sources, findings, gaps, report) |
 | `GET` | `/api/research/{id}/report` | Full markdown research report |
 | `POST` | `/api/research/{id}/compare` | Compare two sources (similarities/differences/contradictions) |
 | `GET` | `/api/research/{id}/comparisons` | Past comparisons for the session |
-| `GET` | `/api/research/{id}/workspace` | Starred/saved sources (`?starred=` `?saved=`) |
+| `GET` | `/api/research/{id}/workspace` | Sources, with `?starred=` `?saved=` `?tag=` filters |
 | `PATCH` | `/api/research/{id}/sources/{sid}` | Star/save/tag/note a source |
 | `POST` | `/api/research/{id}/sources/{sid}/summarize` | On-demand source summary |
 | `GET` | `/api/health` | Health check |
 
-## Environment variables
+## Configuration: mock mode vs. real keys
 
-All secrets and options use the `REACH_` prefix and are listed in
+All secrets and options use the `REACH_` prefix; see
 [`backend/.env.example`](backend/.env.example). Real keys are never
 committed.
+
+### Mock mode (no keys — demo/CI)
+
+Run the backend with `REACH_MOCK_MODE=mock` and the whole pipeline executes
+hermetically (no LLM, no search, no network). This is what
+`scripts/launch.sh` uses, so every check — the API smoke test, and the
+browser E2E — runs keylessly:
+
+```bash
+REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --port 8000
+```
+
+### Real keys (live research)
+
+Copy `backend/.env.example` to `backend/.env` and fill in values. The
+pipeline needs two providers:
+
+1. **LLM provider** — any OpenAI-compatible chat-completions API. The
+   project is verified against Groq:
+
+   ```bash
+   REACH_LLM_API_KEY=groq_...          # from https://console.groq.com
+   REACH_LLM_BASE_URL=https://api.groq.com/openai/v1
+   REACH_LLM_MODEL=openai/gpt-oss-120b
+   ```
+
+   (OpenAI also works out of the box: `REACH_LLM_BASE_URL=https://api.openai.com/v1`
+   with `REACH_LLM_MODEL=gpt-4o-mini`.)
+
+2. **Search provider** — Tavily:
+
+   ```bash
+   REACH_SEARCH_API_KEY=tvly-...       # from https://app.tavily.com
+   REACH_SEARCH_PROVIDER=tavily
+   ```
+
+Then set `REACH_MOCK_MODE=off` (default) and start the backend normally;
+every research run now uses the live providers. No frontend configuration
+is required — the UI calls the backend exclusively, so it is identical in
+mock and live modes.
 
 ## Example research session
 
@@ -204,16 +257,12 @@ Or run it all at once, GUI included, with `./scripts/launch.sh`.
 - Sessions are ephemeral and local; no cross-session knowledge graph,
   accounts, or collaboration.
 - A single bounded pass (≤7 queries, ≤15 sources) by design.
-- The web UI currently surfaces a session in depth (frontend polish for
-  cross-session history, dedicated workspace browsing, and the summarize
-  modal remain).
 
 ## Future scope
 
-Cross-session research history, a persistent knowledge graph from
-findings/sources, embeddings for semantic recall across sessions, scheduled
-and re-queryable research loops, contradiction detection, and benchmark
-comparison — none of which require rewriting the pipeline core.
+A persistent knowledge graph from findings/sources, embeddings for semantic
+recall across sessions, scheduled and re-queryable research loops, and
+benchmark comparison — none of which require rewriting the pipeline core.
 
 ## License
 

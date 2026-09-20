@@ -42,6 +42,9 @@ export function SourceComparisonPanel({ sessionId, sources, enabled }: SourceCom
   const comparisons = comparisonsQuery.data ?? [];
   const canCompare = sourceA && sourceB && sourceA !== sourceB;
 
+  const sourceTitle = (id: string) =>
+    sources.find((s) => s.id === id)?.title ?? sources.find((s) => s.id === id)?.url ?? `Source ${id}`;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Controls */}
@@ -135,6 +138,12 @@ export function SourceComparisonPanel({ sessionId, sources, enabled }: SourceCom
         </p>
       )}
 
+      {comparisons.length > 0 && (
+        <p className="label" style={{ color: 'var(--text-muted)' }}>
+          Comparison history ({comparisons.length})
+        </p>
+      )}
+
       {comparisons.map((comparison: SourceComparison) => (
         <div
           key={comparison.id}
@@ -149,6 +158,30 @@ export function SourceComparisonPanel({ sessionId, sources, enabled }: SourceCom
             gap: '1.25rem',
           }}
         >
+          {/* Which sources were compared */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+            <span
+              className="mono-text"
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-subtle)',
+                background: 'var(--surface-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-xs)',
+                padding: '0.25rem 0.5rem',
+              }}
+            >
+              #{comparison.id}
+            </span>
+            <span title={sourceTitle(comparison.source_a_id)} style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 500, maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {sourceTitle(comparison.source_a_id)}
+            </span>
+            <ArrowRight size={13} style={{ color: 'var(--text-subtle)', flexShrink: 0 }} aria-hidden="true" />
+            <span title={sourceTitle(comparison.source_b_id)} style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 500, maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {sourceTitle(comparison.source_b_id)}
+            </span>
+          </div>
+
           {comparison.result.overview && (
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
               {comparison.result.overview}

@@ -8,6 +8,7 @@
 # Usage:
 #   ./scripts/launch.sh                # full launch + smoke test
 #   REACH_BACKEND_ONLY=1 ./scripts/launch.sh   # backend API smoke test only
+#   RUN_E2E=1 ./scripts/launch.sh              # + browser E2E, then shut down
 
 set -euo pipefail
 
@@ -166,6 +167,20 @@ fi
 # In backend-only (CI) mode, shut down after a successful test.
 if [ "${REACH_BACKEND_ONLY:-0}" = "1" ]; then
   info "Backend-only test complete; shutting down."
+  exit 0
+fi
+
+# Browser E2E mode: drive the running product through Playwright (headless
+# Chromium), then shut down regardless of the result.
+if [ "${RUN_E2E:-0}" = "1" ]; then
+  info "Running browser E2E against http://localhost:$WEB_PORT…"
+  if ( cd "$WEB" && npm run test:e2e ); then
+    echo -e "${GREEN}${BOLD}REACH browser E2E: PASSED${NC}"
+  else
+    echo -e "${RED}${BOLD}REACH browser E2E: FAILED${NC}"
+    exit 1
+  fi
+  info "E2E complete; shutting down."
   exit 0
 fi
 

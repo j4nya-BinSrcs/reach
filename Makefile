@@ -6,7 +6,7 @@ ROOT  := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 BACKEND := $(ROOT)/backend
 WEB     := $(ROOT)/apps/web
 
-.PHONY: help setup setup-backend setup-web backend web test test-backend build web-build full dev drone
+.PHONY: help setup setup-backend setup-web backend web test test-backend test-web test-unit test-e2e full dev drone clean
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -39,7 +39,15 @@ test-backend: ## Run the backend test suite + lint
 test-web: ## Lint + typecheck + build the web app
 	cd $(WEB) && npm run lint && npm run build
 
-test: test-backend test-web ## Run all checks
+test-unit: ## Web unit tests (vitest) + backend tests + lint
+	cd $(WEB) && npm run test
+	cd $(BACKEND) && .venv/bin/python -m pytest -q
+	cd $(BACKEND) && .venv/bin/python -m pyflakes app/ tests/
+
+test-e2e: ## Boot the product via launch.sh and drive it with a headless browser
+	RUN_E2E=1 ./scripts/launch.sh
+
+test: test-backend test-web ## Run all static/lint/build checks
 
 ## ── Full product ─────────────────────────────────────────
 
