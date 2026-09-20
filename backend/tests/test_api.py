@@ -165,6 +165,48 @@ class TestReport:
         assert client.get("/api/research/nope/report").status_code == 404
 
 
+class TestResearchHistory:
+    def test_list_returns_empty_without_polluting(self, client: TestClient) -> None:
+        sessions = client.get("/api/research").json()
+        assert isinstance(sessions, list)
+
+    def test_list_includes_created_sessions(self, client: TestClient) -> None:
+        response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
+        assert response.status_code == 201
+        sessions = client.get("/api/research").json()
+        assert any(session["id"] == response.json()["session_id"] for session in sessions)
+
+    def test_list_includes_counts_after_completion(self, client: TestClient) -> None:
+        response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
+        session_id = response.json()["session_id"]
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            update = client.get(f"/api/research/{session_id}/status").json()
+            if update["status"] in {"complete", "failed"}:
+                break
+            time.sleep(0.05)
+        sessions = client.get("/api/research").json()
+        entry = next(s for s in sessions if s["id"] == session_id)
+        assert entry["status"] == "complete"
+        assert entry["sources_count"] >= 1
+        assert entry["findings_count"] >= 1
+        assert entry["gaps_count"] >= 1
+
+    def test_list_filters_complete_status(self, client: TestClient) -> None:
+        response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
+        session_id = response.json()["session_id"]
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            update = client.get(f"/api/research/{session_id}/status").json()
+            if update["status"] in {"complete", "failed"}:
+                break
+            time.sleep(0.05)
+        terminal = client.get("/api/research", params={"status": "complete"}).json()
+        assert any(session["id"] == session_id for session in terminal)
+        in_progress = client.get("/api/research", params={"exclude_in_progress": True}).json()
+        assert all(session["status"] in {"complete", "failed"} for session in in_progress)
+
+
 class TestWorkspace:
     def _completed_session(self, client: TestClient) -> tuple[str, list[dict]]:
         response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
@@ -220,6 +262,20 @@ class TestWorkspace:
             json={"starred": True},
         )
         assert response.status_code == 404
+
+    def test_workspace_filter_by_tag(self, client: TestClient) -> None:
+        session_id, sources = self._completed_session(client)
+        if not sources:
+            pytest.skip("mock run surfaced no sources")
+        source_id = sources[0]["id"]
+        client.patch(
+            f"/api/research/{session_id}/sources/{source_id}",
+            json={"tags": ["core", "reference"]},
+        )
+        tagged = client.get(f"/api/research/{session_id}/workspace", params={"tag": "core"}).json()
+        assert [source["id"] for source in tagged] == [source_id]
+        unmatched = client.get(f"/api/research/{session_id}/workspace", params={"tag": "nope"}).json()
+        assert unmatched == []
 
     def test_workspace_missing_session_404(self, client: TestClient) -> None:
         assert client.get("/api/research/nope/workspace").status_code == 404

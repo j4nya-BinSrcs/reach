@@ -2,12 +2,18 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.models.finding import SourceComparison
-from app.models.research import ProgressUpdate, ResearchSessionDetail, StartResearchRequest
+from app.models.research import (
+    ProgressUpdate,
+    ResearchSessionDetail,
+    SessionStatus,
+    SessionSummary,
+    StartResearchRequest,
+)
 from app.models.source import Source, SourceAnalysis
 from app.services.research_service import ResearchService
 
@@ -44,6 +50,21 @@ async def start_research(payload: StartResearchRequest, request: Request) -> dic
     except RuntimeError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     return {"session_id": session.id}
+
+
+@router.get("", response_model=list[SessionSummary])
+async def list_sessions(
+    request: Request,
+    status_filter: SessionStatus | None = Query(default=None, alias="status"),
+    limit: int = Query(default=50, ge=1, le=200),
+    exclude_in_progress: bool = Query(default=False),
+) -> list[SessionSummary]:
+    """List research sessions (newest first) for the history dashboard."""
+    return _service(request).list_sessions(
+        status=status_filter,
+        limit=limit,
+        exclude_in_progress=exclude_in_progress,
+    )
 
 
 @router.get("/{session_id}/status", response_model=ProgressUpdate)
@@ -90,13 +111,17 @@ async def get_report(session_id: str, request: Request) -> str:
 
 @router.get("/{session_id}/workspace", response_model=list[Source])
 async def list_workspace_sources(
-    session_id: str, request: Request, starred: bool = False, saved: bool = False
+    session_id: str,
+    request: Request,
+    starred: bool = False,
+    saved: bool = False,
+    tag: str | None = None,
 ) -> list[Source]:
-    """List session sources, optionally filtered to starred/saved workspace items."""
+    """List session sources, optionally filtered by workspace flags or a tag."""
     service = _service(request)
     if service.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="Research session not found")
-    return service.get_workspace_sources(session_id, starred=starred, saved=saved)
+    return service.get_workspace_sources(session_id, starred=starred, saved=saved, tag=tag)
 
 
 @router.patch("/{session_id}/sources/{source_id}", response_model=Source)

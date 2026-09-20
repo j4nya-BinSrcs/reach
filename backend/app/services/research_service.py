@@ -86,6 +86,18 @@ class ResearchService:
     def get_session(self, session_id: str) -> ResearchSession | None:
         return self._sessions.get_session(session_id)
 
+    def list_sessions(
+        self,
+        status: SessionStatus | None = None,
+        limit: int = 50,
+        exclude_in_progress: bool = False,
+    ) -> list:
+        return self._sessions.list_sessions(
+            status=status,
+            limit=limit,
+            exclude_in_progress=exclude_in_progress,
+        )
+
     def get_status(self, session_id: str) -> ProgressUpdate | None:
         session = self._sessions.get_session(session_id)
         if session is None:
@@ -154,9 +166,9 @@ class ResearchService:
     # --- workspace -----------------------------------------------------------
 
     def get_workspace_sources(
-        self, session_id: str, starred: bool = False, saved: bool = False
+        self, session_id: str, starred: bool = False, saved: bool = False, tag: str | None = None
     ) -> list[Source]:
-        return self._sources.get_sources_workspace(session_id, starred=starred, saved=saved)
+        return self._sources.get_sources_workspace(session_id, starred=starred, saved=saved, tag=tag)
 
     def update_source_workspace(
         self,

@@ -13,7 +13,7 @@ from typing import Any
 
 from app.models.finding import Finding, ResearchGap, ResearchSynthesis, SourceComparison, SourceComparisonResult
 from app.models.report import ResearchReport
-from app.models.research import ResearchSession, SessionStatus
+from app.models.research import ResearchSession, SessionStatus, SessionSummary
 from app.models.source import Source, SourceAnalysis, SourceFetchStatus, SourceType
 from app.storage.database import session_connection
 
@@ -69,6 +69,47 @@ class SessionRepository:
                 "SELECT * FROM research_sessions WHERE id = ?", (session_id,)
             ).fetchone()
         return _row_to_session(row)
+
+    def list_sessions(
+        self,
+        status: SessionStatus | None = None,
+        limit: int = 50,
+        exclude_in_progress: bool = False,
+    ) -> list[SessionSummary]:
+        """List sessions newest-first with lightweight aggregate counts."""
+        clauses = ["1 = 1"]
+        params: list[Any] = []
+        if status is not None:
+            clauses.append("s.status = ?")
+            params.append(status.value)
+        if exclude_in_progress:
+            clauses.append("s.status NOT IN ('planning','searching','filtering','fetching','analyzing','synthesizing')")
+        with session_connection(self._path) as connection:
+            rows = connection.execute(
+                "SELECT s.id, s.objective, s.status, s.progress, s.error, s.created_at, s.updated_at,"
+                " (SELECT COUNT(*) FROM sources src WHERE src.session_id = s.id) AS sources_count,"
+                " (SELECT COUNT(*) FROM findings f WHERE f.session_id = s.id) AS findings_count,"
+                " (SELECT COUNT(*) FROM research_gaps g WHERE g.session_id = s.id) AS gaps_count"
+                " FROM research_sessions s"
+                f" WHERE {' AND '.join(clauses)}"
+                " ORDER BY s.created_at DESC LIMIT ?",
+                [*params, int(limit)],
+            ).fetchall()
+        return [
+            SessionSummary(
+                id=row["id"],
+                objective=row["objective"],
+                status=SessionStatus(row["status"]),
+                progress=row["progress"],
+                error=row["error"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+                updated_at=datetime.fromisoformat(row["updated_at"]),
+                sources_count=row["sources_count"],
+                findings_count=row["findings_count"],
+                gaps_count=row["gaps_count"],
+            )
+            for row in rows
+        ]
 
     def update_status(
         self,
@@ -183,13 +224,22 @@ class SourceRepository:
             ).fetchall()
         return [self._row_to_source(row) for row in rows]
 
-    def get_sources_workspace(self, session_id: str, starred: bool = False, saved: bool = False) -> list[Source]:
+    def get_sources_workspace(
+        self,
+        session_id: str,
+        starred: bool = False,
+        saved: bool = False,
+        tag: str | None = None,
+    ) -> list[Source]:
         filters = ["session_id = ?"]
         params: list[Any] = [session_id]
         if starred:
             filters.append("starred = 1")
         if saved:
             filters.append("saved = 1")
+        if tag:
+            filters.append("tags LIKE ?")
+            params.append(f'%"{tag}"%')
         with session_connection(self._path) as connection:
             rows = connection.execute(
                 f"SELECT * FROM sources WHERE {' AND '.join(filters)} ORDER BY relevance DESC, id",

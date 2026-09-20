@@ -70,3 +70,18 @@ class ResearchSessionDetail(ResearchSession):
     summary: dict = Field(default_factory=dict)
     comparisons: list = Field(default_factory=list)
     report: dict | None = None
+
+
+class SessionSummary(BaseModel):
+    """A lightweight row for the browse/history list (no heavy payloads)."""
+
+    id: str
+    objective: str
+    status: SessionStatus
+    progress: int = 0
+    error: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    sources_count: int = 0
+    findings_count: int = 0
+    gaps_count: int = 0
