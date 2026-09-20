@@ -33,6 +33,12 @@ class StartResearchRequest(BaseModel):
         return stripped
 
 
+class QueryPlan(BaseModel):
+    """Structured output of the planner: a set of search queries."""
+
+    queries: list[str] = Field(default_factory=list)
+
+
 class ProgressUpdate(BaseModel):
     """A status snapshot surfaced to the frontend while research runs."""
 
