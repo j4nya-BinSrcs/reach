@@ -12,7 +12,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { ErrorState } from '../components/common/ErrorState';
 import { EmptyState } from '../components/common/EmptyState';
-import { CardListSkeleton, ReportSkeleton, SummarySkeleton } from '../components/research/WorkspaceSkeleton';
+import { CardListSkeleton, ReportSkeleton } from '../components/research/WorkspaceSkeleton';
 
 type Tab = 'report' | 'findings' | 'workspace';
 
@@ -113,12 +113,11 @@ export function ResearchSession() {
   }
 
   const savedSources = session.sources.filter(s => s.saved);
-  const hasSummary = !!session.summary;
 
   const leftContent = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', overflowY: 'auto', minHeight: 0 }}>
       <ResearchHeader session={session} running={isRunning} />
-      <div>
+      <div style={{ overflowY: 'auto', minHeight: 0 }}>
         <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>
           Sources ({session.sources.length})
         </p>
@@ -132,12 +131,12 @@ export function ResearchSession() {
   );
 
   const rightContent = (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', minHeight: 0 }}>
       <TabBar active={activeTab} onSwitch={setActiveTab} />
 
       {/* Report Tab */}
       {activeTab === 'report' && (
-        <section aria-label="Research report" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 12rem)', paddingRight: '0.5rem' }}>
+        <section aria-label="Research report" style={{ overflowY: 'auto', paddingRight: '0.5rem', flex: 1, minHeight: 0 }}>
           {session.report ? (
             <ResearchReportView report={session.report} />
           ) : (
@@ -148,7 +147,7 @@ export function ResearchSession() {
 
       {/* Findings Tab */}
       {activeTab === 'findings' && (
-        <section aria-label="Findings and open questions" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 12rem)', paddingRight: '0.5rem' }}>
+        <section aria-label="Findings and open questions" style={{ overflowY: 'auto', paddingRight: '0.5rem', flex: 1, minHeight: 0 }}>
           {session.findings.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
               {session.findings.map((finding, i) => (
@@ -186,41 +185,17 @@ export function ResearchSession() {
 
       {/* Workspace Tab */}
       {activeTab === 'workspace' && (
-        <section aria-label="Workspace" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 12rem)', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Summary */}
-          {hasSummary ? (
-            <div>
-              <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Summary</p>
-              <div
-                style={{
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  padding: '1.25rem 1.5rem',
-                }}
-              >
-                <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
-                  {hasSummary && session.summary ? session.summary.overview : ''}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div style={{ marginBottom: '0.5rem' }}>
-              <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Summary</p>
-              <SummarySkeleton />
-            </div>
-          )}
-
+        <section aria-label="Workspace" style={{ overflowY: 'auto', paddingRight: '0.5rem', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Saved Sources */}
           {savedSources.length > 0 && (
-            <div>
+            <div style={{ flexShrink: 0 }}>
               <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Saved Sources ({savedSources.length})</p>
               <SourceList sources={savedSources} sessionId={session.id} />
             </div>
           )}
 
           {/* Notes */}
-          <div>
+          <div style={{ flexShrink: 0 }}>
             <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Session Notes</p>
             <div
               style={{
@@ -250,7 +225,7 @@ export function ResearchSession() {
           </div>
 
           {/* Comparison moved to workspace */}
-          <div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             <p className="label" style={{ marginBottom: '0.75rem', color: 'var(--accent)' }}>Source Comparison</p>
             {session.sources.length >= 2 ? (
               <SourceComparisonPanel
@@ -270,10 +245,11 @@ export function ResearchSession() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        height: '100vh',
         background: 'var(--bg)',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
       <div className="bg-grid" aria-hidden="true" />
@@ -281,7 +257,7 @@ export function ResearchSession() {
       {/* Persistent header */}
       <Header />
 
-      {/* Main content area */}
+      {/* Main content area - fills remaining viewport */}
       <div
         style={{
           flex: 1,
@@ -289,18 +265,19 @@ export function ResearchSession() {
           maxWidth: '1400px',
           margin: '0 auto',
           width: '100%',
-          padding: '5.5rem 1.5rem 3rem',
+          padding: '5.5rem 1.5rem 0',
           gap: '2rem',
           position: 'relative',
           zIndex: 1,
+          overflow: 'hidden',
         }}
       >
         {/* Left partition: 40% */}
-        <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
+        <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflowY: 'auto', minHeight: 0 }}>
           {leftContent}
         </div>
         {/* Right partition: 60% */}
-        <div style={{ flex: '0 0 60%', minWidth: 0 }}>
+        <div style={{ flex: '0 0 60%', minWidth: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', minHeight: 0 }}>
           {rightContent}
         </div>
       </div>

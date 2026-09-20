@@ -10,6 +10,14 @@ from contextlib import contextmanager
 from pathlib import Path
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    email       TEXT NOT NULL UNIQUE,
+    name        TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS research_sessions (
     id          TEXT PRIMARY KEY,
     objective   TEXT NOT NULL,
@@ -81,12 +89,14 @@ CREATE TABLE IF NOT EXISTS source_comparisons (
     created_at  TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_queries_session   ON queries(session_id);
 CREATE INDEX IF NOT EXISTS idx_sources_session   ON sources(session_id);
 CREATE INDEX IF NOT EXISTS idx_sources_url       ON sources(session_id, url);
 CREATE INDEX IF NOT EXISTS idx_findings_session  ON findings(session_id);
 CREATE INDEX IF NOT EXISTS idx_gaps_session      ON research_gaps(session_id);
 CREATE INDEX IF NOT EXISTS idx_comparisons_session ON source_comparisons(session_id);
+CREATE INDEX IF NOT EXISTS idx_users_created     ON users(created_at);
 """
 
 

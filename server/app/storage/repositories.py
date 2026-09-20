@@ -15,6 +15,7 @@ from app.models.finding import Finding, ResearchGap, ResearchSynthesis, SourceCo
 from app.models.report import ResearchReport
 from app.models.research import ResearchSession, SessionStatus, SessionSummary
 from app.models.source import Source, SourceAnalysis, SourceFetchStatus, SourceType
+from app.models.user import User
 from app.storage.database import session_connection
 
 MISSING = object()
@@ -421,4 +422,43 @@ class ComparisonRepository:
             source_a_id=row["source_a_id"],
             source_b_id=row["source_b_id"],
             result=SourceComparisonResult.model_validate_json(row["result"] or "{}"),
+        )
+
+
+class UserRepository:
+    def __init__(self, db_path: Path) -> None:
+        self._path = Path(db_path)
+
+    def create_user(self, email: str, name: str, password_hash: str) -> User:
+        now = _now()
+        with session_connection(self._path) as connection:
+            cursor = connection.execute(
+                "INSERT INTO users (email, name, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                (email, name, password_hash, now),
+            )
+            user_id = int(cursor.lastrowid)
+        return User(id=user_id, email=email, name=name, created_at=datetime.fromisoformat(now))
+
+    def get_by_email(self, email: str) -> User | None:
+        with session_connection(self._path) as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE email = ?", (email,)
+            ).fetchone()
+        if row is None:
+            return None
+        return User(
+            id=row["id"], email=row["email"], name=row["name"],
+            password_hash=row["password_hash"], created_at=datetime.fromisoformat(row["created_at"]),
+        )
+
+    def get_by_id(self, user_id: int) -> User | None:
+        with session_connection(self._path) as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return User(
+            id=row["id"], email=row["email"], name=row["name"],
+            password_hash=row["password_hash"], created_at=datetime.fromisoformat(row["created_at"]),
         )
