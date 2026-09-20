@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { EXAMPLE_PROMPTS } from '../../lib/constants';
 
 interface ResearchInputProps {
   onSubmit: (objective: string) => void;
@@ -12,12 +11,10 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-focus on mount
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
-  // Auto-resize textarea
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -38,30 +35,28 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
     }
   }
 
-  function applyExample(prompt: string) {
-    setValue(prompt);
-    textareaRef.current?.focus();
-  }
-
   const canSubmit = value.trim().length > 0 && !isLoading;
 
   return (
     <div style={{ width: '100%', maxWidth: '680px' }}>
       <form onSubmit={handleSubmit} noValidate>
-        {/* Input box */}
         <div
           style={{
             position: 'relative',
             border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-md)',
             background: 'var(--surface)',
-            transition: 'border-color 0.15s ease',
+            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
           }}
           onFocusCapture={(e) => {
-            (e.currentTarget as HTMLElement).style.borderColor = 'rgba(79,142,247,0.4)';
+            const el = e.currentTarget as HTMLElement;
+            el.style.borderColor = 'rgba(79,142,247,0.4)';
+            el.style.boxShadow = '0 0 0 3px rgba(79,142,247,0.08)';
           }}
           onBlurCapture={(e) => {
-            (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-strong)';
+            const el = e.currentTarget as HTMLElement;
+            el.style.borderColor = 'var(--border-strong)';
+            el.style.boxShadow = 'none';
           }}
         >
           <label
@@ -89,21 +84,19 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
             aria-describedby={error ? 'research-error' : 'research-hint'}
             style={{
               width: '100%',
-              padding: '1.125rem 1.25rem 3.5rem',
+              padding: '1.25rem 1.5rem 3.5rem',
               background: 'transparent',
               border: 'none',
               resize: 'none',
               color: 'var(--text)',
-              fontSize: '0.9375rem',
-              lineHeight: 1.6,
+              fontSize: '1rem',
+              lineHeight: 1.65,
               outline: 'none',
               fontFamily: 'inherit',
               minHeight: '120px',
               caretColor: 'var(--accent)',
             }}
           />
-
-          {/* Footer bar */}
           <div
             style={{
               position: 'absolute',
@@ -134,7 +127,7 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                padding: '0.5rem 1rem',
+                padding: '0.5rem 1.125rem',
                 borderRadius: 'var(--radius-sm)',
                 background: canSubmit ? 'var(--accent)' : 'var(--surface-elevated)',
                 color: canSubmit ? 'white' : 'var(--text-muted)',
@@ -142,15 +135,21 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
                 cursor: canSubmit ? 'pointer' : 'not-allowed',
                 fontSize: '0.8125rem',
                 fontWeight: 500,
-                transition: 'background 0.15s ease, transform 0.1s ease, opacity 0.15s ease',
+                transition: 'background 0.15s ease, transform 0.1s ease, opacity 0.15s ease, box-shadow 0.15s ease',
                 opacity: canSubmit ? 1 : 0.5,
                 fontFamily: 'inherit',
               }}
               onMouseEnter={(e) => {
-                if (canSubmit) (e.currentTarget as HTMLElement).style.background = 'var(--accent-bright)';
+                if (canSubmit) {
+                  (e.currentTarget as HTMLElement).style.background = 'var(--accent-bright)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 12px rgba(79,142,247,0.2)';
+                }
               }}
               onMouseLeave={(e) => {
-                if (canSubmit) (e.currentTarget as HTMLElement).style.background = 'var(--accent)';
+                if (canSubmit) {
+                  (e.currentTarget as HTMLElement).style.background = 'var(--accent)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                }
               }}
               onMouseDown={(e) => {
                 if (canSubmit) (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)';
@@ -170,13 +169,12 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
           </div>
         </div>
 
-        {/* Error */}
         {error && (
           <p
             id="research-error"
             role="alert"
             style={{
-              marginTop: '0.625rem',
+              marginTop: '0.75rem',
               fontSize: '0.8125rem',
               color: 'var(--red)',
             }}
@@ -185,52 +183,6 @@ export function ResearchInput({ onSubmit, isLoading = false, error }: ResearchIn
           </p>
         )}
       </form>
-
-      {/* Example prompts */}
-      <div style={{ marginTop: '1.75rem' }}>
-        <p
-          className="label"
-          style={{ marginBottom: '0.75rem' }}
-        >
-          Example objectives
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {EXAMPLE_PROMPTS.map((prompt, i) => (
-            <button
-              key={i}
-              onClick={() => applyExample(prompt)}
-              style={{
-                textAlign: 'left',
-                padding: '0.625rem 0.875rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)',
-                background: 'transparent',
-                color: 'var(--text-muted)',
-                fontSize: '0.8125rem',
-                lineHeight: 1.5,
-                cursor: 'pointer',
-                transition: 'color 0.15s ease, border-color 0.15s ease, background 0.15s ease',
-                fontFamily: 'inherit',
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.color = 'var(--text)';
-                el.style.borderColor = 'var(--border-strong)';
-                el.style.background = 'var(--surface)';
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.color = 'var(--text-muted)';
-                el.style.borderColor = 'var(--border)';
-                el.style.background = 'transparent';
-              }}
-              aria-label={`Use example: ${prompt.slice(0, 60)}…`}
-            >
-              {prompt.length > 100 ? prompt.slice(0, 100) + '…' : prompt}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <style>{`
         @keyframes spin {
