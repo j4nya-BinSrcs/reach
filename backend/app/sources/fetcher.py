@@ -112,3 +112,23 @@ class SourceFetcher:
     def _allowed_scheme(url: str) -> bool:
         scheme = url.split(":", 1)[0].lower()
         return scheme in {"http", "https"}
+
+    @staticmethod
+    def mock_transport() -> httpx.MockTransport:
+        """A transport serving tiny deterministic pages, used in mock mode."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            host = request.url.host or "example.com"
+            title = request.url.path.strip("/").rsplit("/", 1)[-1].replace("-", " ") or host
+            body = (
+                "<!doctype html><html><head><title>"
+                f"{title} — REACH mock page"
+                "</title></head><body>"
+                "<p>This document covers the topic using search indexing, inverted indexes, "
+                f"full-text search, and implementations relevant to the objective ({host}).</p>"
+                f"<p>It notes key technologies and outlines limitations for further study at {host}.</p>"
+                "</body></html>"
+            )
+            return httpx.Response(200, headers={"Content-Type": "text/html"}, content=body, request=request)
+
+        return httpx.MockTransport(handler)

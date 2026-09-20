@@ -89,13 +89,15 @@ class MockLLMProvider(LLMProvider):
 
 def _mock_structured(system: str, user: str, response_model):
     """Build a default mock instance for any Pydantic model."""
-    from typing import get_origin
+    from typing import get_args, get_origin
 
     fields = {}
     for name, field in response_model.model_fields.items():
         origin = get_origin(field.annotation)
         if origin is list:
-            fields[name] = [f"Mock {name.replace('_', ' ')} item 1", f"Mock {name.replace('_', ' ')} item 2"]
+            args = get_args(field.annotation)
+            item_type = args[0] if args else None
+            fields[name] = _build_list_items(name, item_type)
         elif origin is dict:
             fields[name] = {}
         else:
@@ -104,6 +106,14 @@ def _mock_structured(system: str, user: str, response_model):
     if "queries" in response_model.model_fields:
         fields["queries"] = _derive_queries(user)
     return response_model(**fields)
+
+
+def _build_list_items(name: str, item_type) -> list:
+    """Fill a list field: nested models recursively, strings as items."""
+    if isinstance(item_type, type) and issubclass(item_type, BaseModel):
+        return [_mock_structured("", "", item_type) for _ in range(2)]
+    label = name.replace("_", " ")
+    return [f"Mock {label} item 1", f"Mock {label} item 2"]
 
 
 def _derive_queries(user: str) -> list[str]:
