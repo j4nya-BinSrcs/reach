@@ -48,7 +48,10 @@ sequenceDiagram
 | `failed` | (last) | Error message truncated ≤200 chars |
 
 Report generation runs after synthesis and before `complete`; it does not
-introduce a separate `SessionStatus` value.
+introduce a separate `SessionStatus` value. Synthesis and report LLM calls
+are retried with backoff, so `synthesizing` is held while the pipeline keeps
+trying; only persistent failure moves the session to `failed` (never
+"complete" with placeholder content).
 
 ## 2. Pipeline workflow (system)
 

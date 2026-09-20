@@ -453,10 +453,21 @@ def _mock_synthesis(topic: str, intent: ReportIntent) -> SynthesisResult:
         relevant_technologies = []
     return SynthesisResult(
         overview=overview,
+        key_findings=[
+            {
+                "title": title,
+                "summary": _mock_scalar("summary", topic, n),
+                "source_titles": [_mock_scalar("title", topic, n)],
+            }
+            for n, title in enumerate(_mock_list_items("key findings", topic))
+        ],
         existing_projects=existing_projects,
         relevant_technologies=relevant_technologies,
         important_sources=_mock_list_items("important sources", topic),
-        open_questions=_mock_list_items("open questions", topic),
+        open_questions=[
+            {"question": question, "rationale": _mock_scalar("rationale", topic)}
+            for question in _mock_list_items("open questions", topic)
+        ],
     )
 
 

@@ -6,6 +6,7 @@ re-fetching the same URL within one research session.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -119,7 +120,9 @@ class SourceFetcher:
 
         def handler(request: httpx.Request) -> httpx.Response:
             host = request.url.host or "example.com"
-            title = request.url.path.strip("/").rsplit("/", 1)[-1].replace("-", " ") or host
+            raw_slug = request.url.path.strip("/").rsplit("/", 1)[-1] or host
+            slug = re.sub(r"^\d+-", "", raw_slug).rstrip("-").replace("-", " ").strip()
+            title = slug or host
             body = (
                 "<!doctype html><html><head><title>"
                 f"{title} — overview"

@@ -168,10 +168,13 @@ Persisted shapes:
 - `research_gaps`  
 - `research_sessions.synthesis` (JSON brief)
 
-### Fallback
+### Retries & failure
 
-One finding per analyzed source; one generic open question; overview stating
-that synthesis was incomplete.
+Synthesis LLM calls are retried with exponential backoff (5 attempts, up to
+30 s delays) so transient provider failures self-heal and the run stays in
+`synthesizing` while it waits. If synthesis genuinely fails, the session is
+marked `failed` instead of completing with placeholder content — sources
+already collected remain persisted for review.
 
 ## 6. Comparator
 
@@ -226,11 +229,12 @@ when rendering markdown.
 After the planned sections, the writer appends grounded appendices from
 pipeline state (source findings, gaps, projects, technologies, source list).
 
-### Fallback
+### Retries & fallback
 
-On model failure a deterministic outline (executive summary, key findings,
-open questions) is filled from the synthesis overview, up to ~8 findings,
-and the research gaps.
+Outline and content LLM calls are retried with backoff like synthesis. Only on
+persistent failure does a deterministic outline (executive summary, key
+findings, open questions) get filled from the real synthesis overview, up to
+~8 findings, and the research gaps — never with placeholder prose.
 
 Persisted on `research_sessions.report` and served as plain text via
 `GET /api/research/{id}/report`.

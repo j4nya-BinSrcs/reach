@@ -12,6 +12,7 @@ import logging
 
 from app.llm.base import LLMProvider
 from app.llm.prompts import report_content_prompts, report_outline_prompts
+from app.llm.retry import call_with_retry
 from app.models.finding import Finding, ResearchGap, ResearchSynthesis
 from app.models.report import ReportIntent, ReportOutline, ReportSection, ReportSectionContent, ResearchReport, ResearchReportContent
 from app.models.source import Source
@@ -35,8 +36,10 @@ def detect_intent(objective: str) -> ReportIntent:
 class ReportWriter:
     """Generate a structured, rendered markdown research document."""
 
-    def __init__(self, llm: LLMProvider) -> None:
+    def __init__(self, llm: LLMProvider, retry_attempts: int = 5, retry_base_delay: float = 2.0) -> None:
         self._llm = llm
+        self._retry_attempts = retry_attempts
+        self._retry_base_delay = retry_base_delay
 
     async def write(
         self,
@@ -63,15 +66,32 @@ class ReportWriter:
         gaps: list[ResearchGap],
         synthesis: ResearchSynthesis | None,
     ) -> tuple[ReportOutline, ResearchReportContent]:
-        """Chose section headings, then fill them with typed content."""
+        """Chose section headings, then fill them with typed content.
+
+        LLM calls are retried with backoff so transient failures self-heal;
+        only a genuinely persistent failure falls back to a deterministic
+        report built from the real findings, gaps, and synthesis.
+        """
         try:
-            outline: ReportOutline = await self._llm.generate_structured(
-                *report_outline_prompts(objective, intent, synthesis, findings),
-                response_model=ReportOutline,
+            outline: ReportOutline = await call_with_retry(
+                lambda: self._llm.generate_structured(
+                    *report_outline_prompts(objective, intent, synthesis, findings),
+                    response_model=ReportOutline,
+                ),
+                attempts=self._retry_attempts,
+                base_delay=self._retry_base_delay,
+                max_delay=30.0,
+                label="report outline",
             )
-            content: ResearchReportContent = await self._llm.generate_structured(
-                *report_content_prompts(objective, outline, intent, sources, findings, gaps, synthesis),
-                response_model=ResearchReportContent,
+            content: ResearchReportContent = await call_with_retry(
+                lambda: self._llm.generate_structured(
+                    *report_content_prompts(objective, outline, intent, sources, findings, gaps, synthesis),
+                    response_model=ResearchReportContent,
+                ),
+                attempts=self._retry_attempts,
+                base_delay=self._retry_base_delay,
+                max_delay=30.0,
+                label="report content",
             )
             _validate_content(outline, content)
         except Exception as exc:  # noqa: BLE001
@@ -144,7 +164,7 @@ def _fallback_outline_and_content(
         ]
     )
     sections = [
-        ReportSectionContent(heading="Executive Summary", items=[synthesis.overview if synthesis and synthesis.overview else "A summary was not generated for this research run."]),
+        ReportSectionContent(heading="Executive Summary", items=[synthesis.overview] if synthesis and synthesis.overview else []),
         ReportSectionContent(heading="Key Findings", items=[f"{finding.title}: {finding.summary}" for finding in findings[:8]]),
         ReportSectionContent(heading="Open Questions", items=[gap.question for gap in gaps]),
     ]

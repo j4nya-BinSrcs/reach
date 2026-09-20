@@ -128,8 +128,8 @@ class SessionRepository:
     def set_error(self, session_id: str, error: str) -> None:
         with session_connection(self._path) as connection:
             connection.execute(
-                "UPDATE research_sessions SET status = ?, error = ?, updated_at = ? WHERE id = ?",
-                (SessionStatus.FAILED.value, error, _now(), session_id),
+                "UPDATE research_sessions SET status = ?, error = ?, message = ?, updated_at = ? WHERE id = ?",
+                (SessionStatus.FAILED.value, error, error, _now(), session_id),
             )
 
     def save_synthesis(self, session_id: str, synthesis: ResearchSynthesis) -> None:

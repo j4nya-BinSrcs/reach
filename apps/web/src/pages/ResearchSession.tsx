@@ -13,6 +13,8 @@ import { SourceComparisonPanel } from '../components/research/SourceComparisonPa
 import { LoadingState } from '../components/common/LoadingState';
 import { ErrorState } from '../components/common/ErrorState';
 import { EmptyState } from '../components/common/EmptyState';
+import { ResearchProgressStrip } from '../components/research/ResearchProgressStrip';
+import { CardListSkeleton, ReportSkeleton, SummarySkeleton } from '../components/research/WorkspaceSkeleton';
 
 // Section wrapper
 function Section({
@@ -93,8 +95,11 @@ export function ResearchSession() {
     if (!id) navigate('/', { replace: true });
   }, [id, navigate]);
 
-  // ── Loading progress ──────────────────────────────────────
-  if (!isComplete && !isFailed) {
+  // ── Loading progress (before anything is streamed) ──────
+  const isRunning = !isComplete && !isFailed;
+  const hasLiveData = !!session && session.sources.length > 0;
+
+  if (isRunning && !hasLiveData) {
     return (
       <ResearchProgress
         objective={id ?? ''}
@@ -132,6 +137,73 @@ export function ResearchSession() {
           title="Failed to load research session"
           message={error instanceof Error ? error.message : 'An unexpected error occurred.'}
         />
+      </AppShell>
+    );
+  }
+
+  // ── Running workspace (live view with skeletons) ──────────
+  if (isRunning) {
+    return (
+      <AppShell>
+        {/* Objective header */}
+        <ResearchHeader session={session} running={true} />
+
+        {/* Live progress */}
+        <ResearchProgressStrip progress={progress} />
+
+        {/* Report */}
+        <Section id="report" title="Research Report">
+          {session.report ? (
+            <ResearchReportView report={session.report} />
+          ) : (
+            <ReportSkeleton />
+          )}
+        </Section>
+
+        {/* Summary */}
+        <Section id="overview" title="Summary">
+          {session.summary ? <ResearchSummary synthesis={session.summary} /> : <SummarySkeleton />}
+        </Section>
+
+        {/* Findings */}
+        <Section id="findings" title="Key Findings" count={session.findings.length}>
+          {session.findings.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              {session.findings.map((finding, i) => (
+                <FindingCard
+                  key={finding.id}
+                  finding={finding}
+                  sources={session.sources}
+                  index={i}
+                />
+              ))}
+            </div>
+          ) : (
+            <CardListSkeleton count={3} />
+          )}
+        </Section>
+
+        {/* Sources */}
+        <Section id="sources" title="Sources" count={session.sources.length}>
+          {session.sources.length > 0 ? (
+            <SourceList sessionId={session.id} sources={session.sources} />
+          ) : (
+            <CardListSkeleton count={3} />
+          )}
+        </Section>
+
+        {/* Open Questions */}
+        <Section id="questions" title="Open Questions" count={session.gaps.length}>
+          {session.gaps.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              {session.gaps.map((gap, i) => (
+                <ResearchGapCard key={gap.id} gap={gap} index={i} />
+              ))}
+            </div>
+          ) : (
+            <CardListSkeleton count={2} />
+          )}
+        </Section>
       </AppShell>
     );
   }

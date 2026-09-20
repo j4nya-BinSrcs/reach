@@ -20,12 +20,20 @@ export function useResearchSession(sessionId: string) {
   const isComplete = statusQuery.data?.status === 'complete';
   const isFailed   = statusQuery.data?.status === 'failed';
 
-  // Fetch full session data once research is complete
+  // Fetch full session data. Once research is complete the payload is
+  // immutable; while it is still running we stream the partial workspace so
+  // sources appear as they are collected and unfinished areas render as
+  // skeletons instead of placeholders.
   const sessionQuery = useQuery({
     queryKey: ['research-session', sessionId],
     queryFn: () => getResearchSession(sessionId),
-    enabled: isComplete,
-    staleTime: Infinity, // session data is immutable once complete
+    enabled: !!sessionId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (!status || isTerminalStatus(status)) return false;
+      return POLL_INTERVAL_MS;
+    },
+    staleTime: (query) => (query.state.data && isTerminalStatus(query.state.data.status) ? Infinity : 0),
   });
 
   return {

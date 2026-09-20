@@ -53,7 +53,7 @@ Approximate coverage (~156 tests; count may drift — trust `pytest --collect-on
 | `test_llm.py` | JSON extraction, structured retries, mock provider |
 | `test_planner.py` | Query generation, bounds, academic guarantee, fallback |
 | `test_agent.py` | Selection/ranking bounds, discovery, fetch/analyze isolation |
-| `test_synthesizer.py` | Provenance title→id mapping, fallback brief |
+| `test_synthesizer.py` | Provenance title→id mapping, retry then raise on failure |
 | `test_comparator.py` | Pairwise comparison success + fallback |
 | `test_report_writer.py` | Intent, markdown render, fallback report |
 | `test_research_service.py` | Full pipeline, concurrency limit, failure marking |

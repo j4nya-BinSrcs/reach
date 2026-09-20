@@ -3,9 +3,10 @@ import { formatRelativeTime } from '../../lib/utils';
 
 interface ResearchHeaderProps {
   session: ResearchSession;
+  running?: boolean;
 }
 
-export function ResearchHeader({ session }: ResearchHeaderProps) {
+export function ResearchHeader({ session, running = false }: ResearchHeaderProps) {
   const sourceCount  = session.sources.length;
   const queryCount   = session.queries.length;
   const findingCount = session.findings.length;
@@ -98,22 +99,33 @@ export function ResearchHeader({ session }: ResearchHeaderProps) {
             gap: '0.375rem',
             padding: '0.25rem 0.625rem',
             borderRadius: 'var(--radius-xs)',
-            background: 'var(--green-dim)',
-            border: '1px solid rgba(76,175,130,0.2)',
+            background: running ? 'var(--accent-dim)' : 'var(--green-dim)',
+            border: `1px solid ${running ? 'rgba(79,142,247,0.25)' : 'rgba(76,175,130,0.2)'}`,
           }}
         >
+          {running && (
+            <span className="pulse-dot" aria-hidden="true" />
+          )}
+          {!running && (
+            <span
+              aria-hidden="true"
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: 'var(--green)',
+                flexShrink: 0,
+              }}
+            />
+          )}
           <span
-            aria-hidden="true"
             style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: 'var(--green)',
-              flexShrink: 0,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              color: running ? 'var(--accent)' : 'var(--green)',
             }}
-          />
-          <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--green)' }}>
-            Complete
+          >
+            {running ? 'In progress' : 'Complete'}
           </span>
         </div>
 

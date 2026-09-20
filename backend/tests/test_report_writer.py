@@ -63,7 +63,7 @@ class TestReportWriter:
             async def generate_structured(self, system, user, response_model, attempts=2):
                 raise RuntimeError("model down")
 
-        writer = ReportWriter(FailingLLM())
+        writer = ReportWriter(FailingLLM(), retry_attempts=2, retry_base_delay=0.0)
         report = await writer.write(
             "Study the history of search indexing",
             sources=[],

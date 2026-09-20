@@ -1,4 +1,4 @@
-"""Synthesizer tests: structured synthesis, provenance mapping, and fallback."""
+"""Synthesizer tests: structured synthesis, provenance mapping, and retries."""
 
 import pytest
 
@@ -23,6 +23,24 @@ class ScriptedSynthesis(LLMProvider):
         if self._fail:
             raise RuntimeError("synthesis down")
         return self._result or SynthesisResult()
+
+
+class FlakySynthesis(LLMProvider):
+    name = "flaky"
+
+    def __init__(self, result: SynthesisResult, failures: int = 2) -> None:
+        self._result = result
+        self._calls = 0
+        self._failures = failures
+
+    async def _generate_text(self, system: str, user: str) -> str:
+        return ""
+
+    async def generate_structured(self, system: str, user: str, response_model, attempts: int = 2):
+        self._calls += 1
+        if self._calls <= self._failures:
+            raise RuntimeError("transient outage")
+        return self._result
 
 
 def _source(source_id: int, title: str, summary: str = "Analysis summary") -> Source:
@@ -77,25 +95,17 @@ class TestSynthesizer:
         assert synthesis.existing_projects == ["Tantivy"]
 
     @pytest.mark.asyncio
-    async def test_fallback_on_llm_failure(self) -> None:
-        sources = [
-            _source(1, "Tantivy", summary="Library summary"),
-            _source(2, "Paper", summary="Paper summary"),
-        ]
-        synthesizer = Synthesizer(llm=ScriptedSynthesis(fail=True))
-        findings, gaps, synthesis = await synthesizer.synthesize("objective", sources)
-        assert len(findings) == 2
-        assert findings[0].supporting_source_ids == [1]
-        assert findings[1].supporting_source_ids == [2]
-        assert gaps
-        assert synthesis.overview
+    async def test_raises_after_retries_on_persistent_failure(self) -> None:
+        sources = [_source(1, "Tantivy", summary="Library summary")]
+        synthesizer = Synthesizer(llm=ScriptedSynthesis(fail=True), retry_attempts=2, retry_base_delay=0.0)
+        with pytest.raises(RuntimeError, match="synthesis down"):
+            await synthesizer.synthesize("objective", sources)
 
     @pytest.mark.asyncio
-    async def test_ignores_sources_without_analysis(self) -> None:
-        bare = Source(id=5, session_id="s", url="https://example.com/5", title="Bare")
-        sources = [_source(1, "With Analysis"), bare]
-        synthesizer = Synthesizer(llm=ScriptedSynthesis(fail=True))
-        findings, _, _ = await synthesizer.synthesize("objective", sources)
-        titles = {finding.title for finding in findings}
-        assert "With Analysis" in titles
-        assert "Bare" not in titles
+    async def test_retries_then_recovers_from_transient_failure(self) -> None:
+        result = SynthesisResult(overview="overview here", key_findings=[])
+        flaky = FlakySynthesis(result=result, failures=2)
+        synthesizer = Synthesizer(llm=flaky, retry_base_delay=0.0)
+        _, _, synthesis = await synthesizer.synthesize("objective", [_source(1, "Tantivy")])
+        assert flaky._calls == 3
+        assert synthesis.overview == "overview here"

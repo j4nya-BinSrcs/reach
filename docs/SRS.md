@@ -196,7 +196,7 @@ Normative detail: [api.md](api.md). Summary requirements:
 | FR-AG-SYN-01 | The synthesizer SHALL produce findings, open questions (gaps), and a research brief. | Must | Implemented |
 | FR-AG-SYN-02 | Findings SHALL include supporting source ids when titles can be mapped. | Must | Implemented |
 | FR-AG-SYN-03 | Gaps SHALL be stored as question + rationale. | Must | Implemented |
-| FR-AG-SYN-04 | On synthesizer LLM failure, the system SHALL persist a deterministic fallback synthesis and still allow completion. | Must | Implemented |
+| FR-AG-SYN-04 | On synthesizer LLM failure, the system SHALL retry with backoff; on persistent failure it SHALL mark the session failed rather than complete with placeholder content. | Must | Implemented |
 
 ### 3.7 Functional requirements — report & comparison
 

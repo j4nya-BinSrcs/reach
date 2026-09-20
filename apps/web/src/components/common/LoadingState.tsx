@@ -5,7 +5,7 @@ interface SkeletonProps {
   style?: React.CSSProperties;
 }
 
-function Skeleton({ className, style }: SkeletonProps) {
+export function Skeleton({ className, style }: SkeletonProps) {
   return (
     <div
       className={cn('skeleton', className)}
