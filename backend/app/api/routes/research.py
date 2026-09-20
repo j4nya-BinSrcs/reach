@@ -1,4 +1,4 @@
-"""Research API endpoints: start, status, full-session retrieval, comparisons."""
+"""Research API endpoints: start, status, full-session retrieval, comparisons, workspace."""
 
 import logging
 
@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.models.finding import SourceComparison
 from app.models.research import ProgressUpdate, ResearchSessionDetail, StartResearchRequest
+from app.models.source import Source, SourceAnalysis
 from app.services.research_service import ResearchService
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,15 @@ class CompareSourcesRequest(BaseModel):
 
     source_a_id: int = Field(..., ge=1)
     source_b_id: int = Field(..., ge=1)
+
+
+class UpdateSourceRequest(BaseModel):
+    """Partial update of a source's workspace properties."""
+
+    starred: bool | None = None
+    saved: bool | None = None
+    note: str | None = None
+    tags: list[str] | None = None
 
 
 def _service(request: Request) -> ResearchService:
@@ -76,3 +86,41 @@ async def get_report(session_id: str, request: Request) -> str:
     if report is None:
         raise HTTPException(status_code=404, detail="Report not ready or session not found")
     return report.markdown
+
+
+@router.get("/{session_id}/workspace", response_model=list[Source])
+async def list_workspace_sources(
+    session_id: str, request: Request, starred: bool = False, saved: bool = False
+) -> list[Source]:
+    """List session sources, optionally filtered to starred/saved workspace items."""
+    service = _service(request)
+    if service.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="Research session not found")
+    return service.get_workspace_sources(session_id, starred=starred, saved=saved)
+
+
+@router.patch("/{session_id}/sources/{source_id}", response_model=Source)
+async def update_source(
+    session_id: str, source_id: int, payload: UpdateSourceRequest, request: Request
+) -> Source:
+    """Mark, save, annotate, or tag a single session source."""
+    try:
+        return _service(request).update_source_workspace(
+            session_id,
+            source_id,
+            starred=payload.starred,
+            saved=payload.saved,
+            note=payload.note,
+            tags=payload.tags,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/sources/{source_id}/summarize", response_model=SourceAnalysis)
+async def summarize_source(session_id: str, source_id: int, request: Request) -> SourceAnalysis:
+    """Produce a focused, self-contained summary of a single source."""
+    try:
+        return await _service(request).summarize_source(session_id, source_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

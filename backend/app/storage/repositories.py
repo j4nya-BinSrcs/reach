@@ -148,23 +148,28 @@ class SourceRepository:
         now = _now()
         ids: list[int] = []
         with session_connection(self._path) as connection:
-            for source in sources:
+            stored_rows = [source.model_dump_stored() for source in sources]
+            for stored in stored_rows:
                 cursor = connection.execute(
                     "INSERT INTO sources (session_id, url, title, source_type, domain, description, snippet,"
-                    " relevance, content, fetch_status, analysis, created_at)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " relevance, content, fetch_status, analysis, starred, saved, note, tags, created_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         session_id,
-                        source.url,
-                        source.title,
-                        source.source_type.value,
-                        source.domain,
-                        source.description,
-                        source.snippet,
-                        source.relevance,
-                        source.content,
-                        source.fetch_status.value,
-                        source.analysis.model_dump_json(),
+                        stored["url"],
+                        stored["title"],
+                        stored["source_type"],
+                        stored["domain"],
+                        stored["description"],
+                        stored["snippet"],
+                        stored["relevance"],
+                        stored["content"],
+                        stored["fetch_status"],
+                        stored["analysis"],
+                        int(stored["starred"]),
+                        int(stored["saved"]),
+                        stored["note"],
+                        stored["tags"],
                         now,
                     ),
                 )
@@ -175,6 +180,20 @@ class SourceRepository:
         with session_connection(self._path) as connection:
             rows = connection.execute(
                 "SELECT * FROM sources WHERE session_id = ? ORDER BY relevance DESC, id", (session_id,)
+            ).fetchall()
+        return [self._row_to_source(row) for row in rows]
+
+    def get_sources_workspace(self, session_id: str, starred: bool = False, saved: bool = False) -> list[Source]:
+        filters = ["session_id = ?"]
+        params: list[Any] = [session_id]
+        if starred:
+            filters.append("starred = 1")
+        if saved:
+            filters.append("saved = 1")
+        with session_connection(self._path) as connection:
+            rows = connection.execute(
+                f"SELECT * FROM sources WHERE {' AND '.join(filters)} ORDER BY relevance DESC, id",
+                params,
             ).fetchall()
         return [self._row_to_source(row) for row in rows]
 
@@ -191,7 +210,7 @@ class SourceRepository:
         with session_connection(self._path) as connection:
             connection.execute(
                 "UPDATE sources SET title = ?, source_type = ?, description = ?, snippet = ?, relevance = ?,"
-                " content = ?, fetch_status = ?, analysis = ? WHERE id = ?",
+                " content = ?, fetch_status = ?, analysis = ?, starred = ?, saved = ?, note = ?, tags = ? WHERE id = ?",
                 (
                     source.title,
                     source.source_type.value,
@@ -201,6 +220,10 @@ class SourceRepository:
                     source.content,
                     source.fetch_status.value,
                     source.analysis.model_dump_json(),
+                    int(source.starred),
+                    int(source.saved),
+                    source.note,
+                    json.dumps(source.tags),
                     source.id,
                 ),
             )
@@ -220,6 +243,10 @@ class SourceRepository:
             content=row["content"],
             fetch_status=SourceFetchStatus(row["fetch_status"]),
             analysis=SourceAnalysis.model_validate_json(row["analysis"] or "{}"),
+            starred=bool(row["starred"]),
+            saved=bool(row["saved"]),
+            note=row["note"],
+            tags=json.loads(row["tags"] or "[]"),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
