@@ -41,6 +41,23 @@ class TestReportWriter:
         assert "Rust inverted indexes" in report.markdown
 
     @pytest.mark.asyncio
+    async def test_mock_report_adapts_structure_to_objective(self) -> None:
+        writer = ReportWriter(MockLLMProvider())
+        report: ResearchReport = await writer.write(
+            "Study the origin of coffee",
+            sources=[],
+            findings=[],
+            gaps=[],
+            synthesis=ResearchSynthesis(overview="The material traces cultivation from highland Ethiopia."),
+        )
+        assert report.intent is ReportIntent.STUDY
+        assert "## Historical Origins and Development" in report.markdown
+        assert "coffee" in report.markdown
+        assert "## Technologies" not in report.markdown
+        assert "## Build Plan" not in report.markdown
+        assert "## Libraries and Frameworks" not in report.markdown
+
+    @pytest.mark.asyncio
     async def test_falls_back_on_llm_failure(self) -> None:
         class FailingLLM(MockLLMProvider):
             async def generate_structured(self, system, user, response_model, attempts=2):
@@ -59,15 +76,27 @@ class TestReportWriter:
 
 
 class TestReportPersistence:
-    def test_report_renders_sources(self) -> None:
+    def test_report_renders_sources_and_planned_sections(self) -> None:
         from app.agent.report_writer import _render_markdown
-        from app.models.report import ResearchReportContent
+        from app.models.report import ReportOutline, ReportSection, ReportSectionContent, ResearchReportContent
         from app.models.source import Source
 
-        content = ResearchReportContent(executive_summary="Summary.", technologies=["Rust", "Tantivy"])
+        outline = ReportOutline(
+            sections=[
+                ReportSection(heading="Executive Summary", scope="Overview."),
+                ReportSection(heading="Technologies", scope="The tools involved."),
+            ]
+        )
+        content = ResearchReportContent(
+            sections=[
+                ReportSectionContent(heading="Executive Summary", items=["Summary."]),
+                ReportSectionContent(heading="Technologies", items=["Rust", "Tantivy"]),
+            ]
+        )
         markdown = _render_markdown(
             "Objective",
             ReportIntent.BUILD,
+            outline,
             content,
             sources=[Source(session_id="s", url="https://arxiv.org/abs/1", title="Paper One")],
             findings=[],
@@ -76,3 +105,15 @@ class TestReportPersistence:
         )
         assert "[Paper One](https://arxiv.org/abs/1)" in markdown
         assert "## Technologies" in markdown
+        assert "Rust" in markdown
+
+    def test_content_outside_outline_is_dropped(self) -> None:
+        from app.agent.report_writer import _render_markdown
+        from app.models.report import ReportOutline, ReportSection, ReportSectionContent, ResearchReportContent
+
+        outline = ReportOutline(sections=[ReportSection(heading="Key Findings", scope="Conclusions.")])
+        content = ResearchReportContent(
+            sections=[ReportSectionContent(heading="Orphan Section", items=["should not render"])]
+        )
+        markdown = _render_markdown("Objective", ReportIntent.GENERAL, outline, content, [], [], [], None)
+        assert "Orphan Section" not in markdown

@@ -132,7 +132,9 @@ Persistence helper `model_dump_stored()` JSON-encodes `analysis` and `tags`.
 
 | Model | Key fields |
 | --- | --- |
-| `ResearchReportContent` | Section fields (executive_summary, key_findings, …) |
+| `ReportOutline` | `sections: [{heading, scope}]` planned for the specific objective |
+| `ReportSectionContent` | `heading`, `items` |
+| `ResearchReportContent` | `sections: [ReportSectionContent]` (headings must belong to the outline) |
 | `ResearchReport` | `intent`, `markdown` |
 
 ## 4. SQLite schema

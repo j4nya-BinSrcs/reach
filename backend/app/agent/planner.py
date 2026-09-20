@@ -6,9 +6,12 @@ understanding) and Stage 2 (query generation) of the research pipeline.
 """
 
 import logging
+import re
 
+from app.agent.report_writer import detect_intent
 from app.llm.base import LLMProvider
 from app.llm.prompts import planner_prompts
+from app.models.report import ReportIntent
 from app.models.research import QueryPlan
 from app.search.models import SearchQuery
 
@@ -18,10 +21,41 @@ DIMENSIONS = [
     "core concept",
     "existing implementations",
     "academic research",
-    "technical implementation",
+    "technical reference",
     "tools and libraries",
     "benchmarks and performance",
     "limitations and challenges",
+]
+
+_DIMENSION_PATTERNS = [
+    (
+        "academic research",
+        r"paper|arxiv|literature|scholar|journal|academic|bibliograph|thesis|citation|primary source|seminal|archive",
+    ),
+    (
+        "existing implementations",
+        r"implementation|open.?source|repository|github|project|codebase|existing|precedent|prototype",
+    ),
+    (
+        "benchmarks and performance",
+        r"benchmark|performance|comparison|measure|scalab|evaluat|load|throughput|latency",
+    ),
+    (
+        "tools and libraries",
+        r"librar|framework|toolkit|sdk|crate|package|api\b|runtime\b",
+    ),
+    (
+        "technical reference",
+        r"doc\b|documentation|guide|tutorial|reference|manual|how.?to|architecture|technical|design",
+    ),
+    (
+        "limitations and challenges",
+        r"limitation|challenge|problem|debate|controvers|open question|risk|drawback|gap",
+    ),
+    (
+        "core concept",
+        r"concept|overview|definition|intro|fundamental|basic|what is|history|origin|figures|people|actor|institution|evidence",
+    ),
 ]
 
 
@@ -50,7 +84,7 @@ class Planner:
 
         queries = self._ensure_academic_query(queries, objective)
 
-        return [SearchQuery(query=query, dimension=DIMENSIONS[i % len(DIMENSIONS)]) for i, query in enumerate(queries)]
+        return [SearchQuery(query=query, dimension=_dimension_of(query)) for query in queries]
 
     def _clean(self, queries: list[str]) -> list[str]:
         cleaned: list[str] = []
@@ -94,8 +128,35 @@ class Planner:
     def _fallback_queries(objective: str) -> list[str]:
         """Deterministic queries used when the LLM planner is unavailable."""
         base = Planner._topic_clause(objective)
+        intent = detect_intent(objective)
+        if intent is ReportIntent.BUILD:
+            return [
+                f"{base} overview, definition, and core concepts",
+                f"{base} existing implementations and open-source projects",
+                f"{base} architecture, key libraries, and technical design",
+                f"{base} benchmarks and performance comparisons",
+                f"{base} limitations, challenges, and open problems",
+            ]
+        if intent is ReportIntent.STUDY:
+            return [
+                f"historical origins and development of {base}",
+                f"academic literature, papers, and scholarship on {base}",
+                f"key figures, institutions, and primary sources on {base}",
+                f"contemporary debates and open questions about {base}",
+            ]
         return [
-            f"{base} research papers, arXiv, and academic literature",
-            f"{base} existing implementations and open source projects",
-            f"{base} documentation and technical guides",
+            f"{base} overview and definition",
+            f"academic literature and evidence on {base}",
+            f"key actors and institutions involved with {base}",
+            f"case studies and real-world examples of {base}",
+            f"contemporary debates and open questions about {base}",
         ]
+
+
+def _dimension_of(query: str) -> str:
+    """Infer which research dimension a query targets from its wording."""
+    lowered = query.lower()
+    for dimension, pattern in _DIMENSION_PATTERNS:
+        if re.search(pattern, lowered):
+            return dimension
+    return "core concept"

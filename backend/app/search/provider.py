@@ -106,12 +106,12 @@ class MockSearchProvider(SearchProvider):
 
 
 _TEMPLATES: list[dict[str, str]] = [
-    {"host": "github.com", "title": "Rust project repository", "blurb": "Open source Rust implementation on GitHub."},
-    {"host": "arxiv.org", "title": "Research paper", "blurb": "Academic paper abstracted for this topic."},
-    {"host": "docs.rs", "title": "Rust crate documentation", "blurb": "API documentation for a relevant crate."},
-    {"host": "raytac.github.io", "title": "Technical guide", "blurb": "A hands-on technical walkthrough."},
-    {"host": "blog.example.com", "title": "Engineering article", "blurb": "Practical engineering write-up from a developer blog."},
-    {"host": "crates.io", "title": "Cargo crate listing", "blurb": "Published crate with metadata and versions."},
+    {"host": "en.wikipedia.org", "title": "Encyclopedia article", "blurb": "A broad overview article on this topic."},
+    {"host": "arxiv.org", "title": "Research paper", "blurb": "An academic paper on this topic."},
+    {"host": "github.com", "title": "Project repository", "blurb": "A public project or working files related to this topic."},
+    {"host": "archive.org", "title": "Archival document", "blurb": "Primary or historical material on this topic."},
+    {"host": "semanticscholar.org", "title": "Scholarly review", "blurb": "A scholarly paper or review on this topic."},
+    {"host": "press.example.com", "title": "News article", "blurb": "A journalism piece covering recent developments."},
 ]
 
 

@@ -208,25 +208,29 @@ Produce a **markdown research report** suited to the user’s objective intent.
 | Intent | Trigger hints (examples) | Emphasis |
 | --- | --- | --- |
 | `build` | build, create, develop, implement, … | architecture, tooling, build plan, optimizations |
-| `study` | study, understand, learn, survey, … | history, concepts, people, citations |
+| `study` | study, history, origins, explore, … | origins, scholarship, people, context |
 | `general` | default | Balanced sections |
 
-### Structured content (`ResearchReportContent`)
+### Two-step planning & fill (`ReportOutline` → `ResearchReportContent`)
 
-Sections include executive summary, key findings, history/background,
-important people, concepts, technologies, libraries, architecture, build
-plan, optimizations, timeline, citations, open questions. Empty sections
-are dropped when rendering markdown.
+The writer never uses a fixed section template. It first plans a
+`ReportOutline` for the specific objective: the model reasons about what the
+report should contain (e.g. a historical objective gets origins, primary
+sources, key figures, cultural context — not technologies or build plans),
+then fills each planned heading with grounded `items`. Content whose heading
+does not belong to the outline is dropped, and empty sections are omitted
+when rendering markdown.
 
 ### Render & appendices
 
-After the model sections, the writer appends grounded appendices from
+After the planned sections, the writer appends grounded appendices from
 pipeline state (source findings, gaps, projects, technologies, source list).
 
 ### Fallback
 
-Deterministic markdown built from synthesis overview, up to ~8 findings,
-and open questions.
+On model failure a deterministic outline (executive summary, key findings,
+open questions) is filled from the synthesis overview, up to ~8 findings,
+and the research gaps.
 
 Persisted on `research_sessions.report` and served as plain text via
 `GET /api/research/{id}/report`.

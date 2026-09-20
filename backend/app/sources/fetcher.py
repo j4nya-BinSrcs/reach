@@ -124,9 +124,9 @@ class SourceFetcher:
                 "<!doctype html><html><head><title>"
                 f"{title} — overview"
                 "</title></head><body>"
-                "<p>This document covers the topic using search indexing, inverted indexes, "
-                f"full-text search, and implementations relevant to the objective ({host}).</p>"
-                f"<p>It notes key technologies and outlines limitations for further study at {host}.</p>"
+                "<p>This document covers the subject named in its title: background, context, and "
+                f"the main points of interest related to the research objective ({host}).</p>"
+                f"<p>It notes key references, primary sources, and open questions for further study at {host}.</p>"
                 "</body></html>"
             )
             return httpx.Response(200, headers={"Content-Type": "text/html"}, content=body, request=request)

@@ -6,7 +6,7 @@ JSON-schema hint, so this file stays free of inline schema dumps.
 """
 
 from app.models.finding import Finding, ResearchGap, ResearchSynthesis
-from app.models.report import ReportIntent
+from app.models.report import ReportIntent, ReportOutline
 from app.models.source import Source, SourceAnalysis
 
 # ---------------------------------------------------------------------------
@@ -16,17 +16,30 @@ from app.models.source import Source, SourceAnalysis
 PLANNER_SYSTEM = """You are the research planner of REACH, a research-intelligence engine.
 Your job is to decompose a user's research objective into a focused set of search queries.
 
-A good research plan:
-- Covers multiple dimensions (core concept, existing implementations, academic
-  literature, technical material, tools/libraries, benchmarks, limitations/privacy).
-- ALWAYS includes at least one query targeting peer-reviewed and primary sources:
-  research papers, arXiv, IEEE/ACM/Springer/Nature, semanticscholar.org, and similar.
-- Uses precise, search-engine-friendly wording, including site: filters or trusted
-  domain hints where they help surface authoritative material.
-- Avoids seven near-identical queries.
-- Stays grounded in the objective; do not invent an unrelated agenda.
+Think hard about what the objective actually is and what kind of knowledge it needs — then
+pick the dimensions that genuinely matter for THAT objective. Do not default to software or
+engineering framing. Some examples of how to adapt:
 
-Return ONLY a JSON object with a single key "queries" holding 5 to 7 search query strings."""
+- A historical or cultural question (e.g. "origin of coffee") wants history, primary sources,
+  scholarship, key figures, archives, cultural and economic context — NOT "implementations",
+  "libraries", or "benchmarks".
+- A scientific question wants methods, data, results, and disagreements from the literature.
+- A policy or market question wants evidence, actors, institutions, and case studies.
+- An engineering/build objective ("build a search engine in Rust") wants existing
+  implementations, architectures, libraries, benchmarks, and limitations.
+
+Rules:
+- Choose 4 to 6 distinct dimensions; make each query a precise, search-engine-friendly string
+  that reuses the objective's own subject wording.
+- ALWAYS include at least one query targeting peer-reviewed and primary sources: research
+  papers, arXiv, scholarly indexes (semanticscholar.org, IEEE/ACM/Springer/Nature), or
+  official archives, phrased naturally for the subject.
+- Use site: filters or trusted domain hints only where they genuinely help the subject.
+- Never lean on software terms ("repo", "library", "crate", "runtime", "API") for a subject
+  that is not about software.
+- Stay grounded in the objective; do not invent an unrelated agenda.
+
+Return ONLY a JSON object with a single key "queries" holding 4 to 6 search query strings."""
 
 
 def planner_prompts(objective: str) -> tuple[str, str]:
@@ -169,39 +182,99 @@ def comparison_prompts(objective: str, source_a: Source, source_b: Source) -> tu
 
 
 # ---------------------------------------------------------------------------
-# Research report
+# Research report — the report plans its own structure for each objective
 # ---------------------------------------------------------------------------
 
-REPORT_SYSTEM = """You are the report writer for REACH. You turn a completed research run
-into a detailed, well-structured research document. You receive the objective,
-its detected intent, analyzed sources, cross-source findings, research gaps,
-and the synthesis brief.
+REPORT_OUTLINE_SYSTEM = """You are the report editor for REACH. Your ONLY job is to decide the
+section structure of a research report for ONE specific objective. You do not write content.
 
-The intent determines which sections matter most:
-- "build": emphasize architecture and recommended project structure, libraries
-  and frameworks, a concrete build plan, and optimizations.
-- "study": emphasize history and background, important people, key concepts
-  (including math where relevant), and precise citations.
-- "general": cover all sections reasonably and evenly.
+Decide what the report should contain by reasoning about the objective's subject matter —
+NOT by applying a generic template. For each section give:
+- heading: a short, meaningful Title Case heading (2-6 words);
+- scope: one sentence on what that section must cover for this objective.
+
+Guidance:
+- Base the structure on the objective's domain. A historical/cultural question wants sections
+  about origins, primary sources and archives, key figures, cultural/economic context, and the
+  scholarly record. A scientific question wants methods, evidence, and open disagreement. An
+  engineering objective wants architecture, components, roadmap, and performance.
+- Always start with "Executive Summary" and "Key Findings". Always end with "Open Questions".
+- Aim for 8 to 11 sections. Do not include a section merely because it exists in some template:
+  omit anything the objective does not call for (e.g. leave out architecture/build-plan sections
+  unless the objective is genuinely about building something).
+- Keep headings self-explanatory; do not repeat the objective verbatim in a heading.
+
+Return ONLY a JSON object with a key "sections": a list of {"heading", "scope"}."""
+
+
+def report_outline_prompts(
+    objective: str,
+    intent: ReportIntent,
+    synthesis: ResearchSynthesis | None,
+    findings: list[Finding],
+) -> tuple[str, str]:
+    """Build prompts that choose the report's section headings for this objective."""
+    hint = {
+        ReportIntent.BUILD: (
+            "an engineering/build objective — this report should lead with existing approaches, "
+            "architecture and design, core components/libraries, a phased build plan, and performance."
+        ),
+        ReportIntent.STUDY: (
+            "a historical or scholarly objective — this report should lead with origins and development, "
+            "primary sources and the academic record, key figures, and historical or cultural context."
+        ),
+        ReportIntent.GENERAL: (
+            "a general objective — choose a balanced structure that fits the subject's own domain."
+        ),
+    }[intent]
+    collected = [
+        f"- {finding.title}: {finding.summary}" for finding in findings[:10]
+    ]
+    synthesis_block = (
+        f"\nSynthesis: {synthesis.overview}" if synthesis and synthesis.overview else ""
+    )
+    user = (
+        f"RESEARCH OBJECTIVE\n{objective}\n\n"
+        f"STUDY PROFILE\n{hint}\n\n"
+        f"AVAILABLE MATERIAL\n"
+        f"{''.join(('' if not collected else 'Key findings:\n' + '\n'.join(collected)))}"
+        f"{synthesis_block}"
+    )
+    return REPORT_OUTLINE_SYSTEM, user
+
+
+REPORT_CONTENT_SYSTEM = """You are the report writer for REACH. You fill in the sections of a
+research report that an editor already planned for a specific objective.
+
+Each section of the outline tells you its heading and the scope it must cover. Produce a
+``sections`` list where each entry has:
+- heading: the outline heading, unchanged;
+- items: 2-5 self-contained, skimmable bullets that actually cover that section's scope for the
+  objective, grounded in the supplied findings, gaps, synthesis, and source analyses.
 
 Rules:
-- Ground every claim in the supplied sources/findings; never invent citations,
-  dates, people, or facts.
-- Be concrete and specific; prefer named tools, papers, and figures.
-- Each list item is a self-contained, skimmable bullet.
-- Leave a section empty (empty list / empty string) only when the material
-  genuinely does not cover it.
-Return ONLY a JSON object matching the requested schema."""
+- Ground every claim in the supplied material; never invent citations, dates, people, or facts.
+- Be concrete and specific; name the actual papers, sources, people, places, or figures where
+  the material supports it.
+- Return the empty items list for a section when the material genuinely does not cover it.
+- Never pad: only include a section you can fill with meaningful, on-topic content.
 
-def report_prompts(
+Return ONLY a JSON object with key "sections": a list of {"heading", "items"}."""
+
+
+def report_content_prompts(
     objective: str,
+    outline: ReportOutline,
     intent: ReportIntent,
     sources: list[Source],
     findings: list[Finding],
     gaps: list[ResearchGap],
     synthesis: ResearchSynthesis | None,
 ) -> tuple[str, str]:
-    """Build prompts that produce the typed content of a research report."""
+    """Build prompts that fill the planned report sections with typed content."""
+    outline_lines = "\n".join(
+        f"- {section.heading}: {section.scope}" for section in outline.sections
+    )
     source_lines = "\n".join(
         f"- {source.title or source.url} ({source.url}) — {source.analysis.summary or ''}"
         for source in sources
@@ -210,20 +283,19 @@ def report_prompts(
     finding_lines = "\n".join(f"- {finding.title}: {finding.summary}" for finding in findings)
     gap_lines = "\n".join(f"- {gap.question}" for gap in gaps)
     synthesis_block = (
-        synthesis.overview
-        if synthesis
-        else ""
-    ) + "\nExisting projects: " + (
-        ", ".join(synthesis.existing_projects) if synthesis and synthesis.existing_projects else "none highlighted"
-    ) + "\nRelevant technologies: " + (
-        ", ".join(synthesis.relevant_technologies) if synthesis and synthesis.relevant_technologies else "none highlighted"
+        (synthesis.overview if synthesis and synthesis.overview else "")
+        + "\nExisting projects referenced: "
+        + (", ".join(synthesis.existing_projects) if synthesis and synthesis.existing_projects else "none")
+        + "\nTechnologies referenced: "
+        + (", ".join(synthesis.relevant_technologies) if synthesis and synthesis.relevant_technologies else "none")
     )
     user = (
         f"RESEARCH OBJECTIVE\n{objective}\n\n"
-        f"DETECTED INTENT\n{intent.value}\n\n"
+        f"STUDY PROFILE\n{intent.value}\n\n"
+        f"PLANNED SECTIONS\n{outline_lines}\n\n"
         f"SYNTHESIS BRIEF\n{synthesis_block}\n\n"
         f"KEY FINDINGS\n{finding_lines or '(none)'}\n\n"
         f"RESEARCH GAPS\n{gap_lines or '(none)'}\n\n"
         f"ANALYZED SOURCES\n{source_lines or '(none)'}"
     )
-    return REPORT_SYSTEM, user
+    return REPORT_CONTENT_SYSTEM, user

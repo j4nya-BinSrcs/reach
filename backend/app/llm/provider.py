@@ -6,11 +6,14 @@ results so the pipeline and tests run without any API keys.
 """
 
 import logging
-from typing import Any
+from typing import Any, get_args, get_origin
 
 from pydantic import BaseModel
 
+from app.agent.report_writer import detect_intent
 from app.llm.base import LLMProvider, LLMError
+from app.models.finding import SynthesisResult
+from app.models.report import ReportIntent, ReportOutline, ReportSection, ReportSectionContent, ResearchReportContent
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +136,17 @@ _TOPIC_STRIP_PREFIXES = (
 _SENTENCE_BOUNDARY = ".;:"
 
 
+def _mock_objective(user: str) -> str:
+    """Extract the raw research objective from a prompt (mock only)."""
+    marker = "RESEARCH OBJECTIVE\n"
+    if marker in user:
+        chunk = user.split(marker, 1)[1]
+    else:
+        chunk = user
+    objective = chunk.splitlines()[0].strip().strip('"').strip() if chunk.strip() else ""
+    return objective
+
+
 def _mock_topic(user: str) -> str:
     """Extract a short noun-phrase topic from a prompt (mock only).
 
@@ -141,11 +155,7 @@ def _mock_topic(user: str) -> str:
     concise topic (stripped of imperative prefixes and trailing detail) so
     mock prose reads cleanly instead of quoting the full request.
     """
-    chunk = user
-    marker = "RESEARCH OBJECTIVE\n"
-    if marker in chunk:
-        chunk = chunk.split(marker, 1)[1]
-    objective = chunk.splitlines()[0].strip().strip('"').strip() if chunk.strip() else ""
+    objective = _mock_objective(user)
     if not objective:
         return "the research focus"
 
@@ -153,6 +163,21 @@ def _mock_topic(user: str) -> str:
     for prefix in _TOPIC_STRIP_PREFIXES:
         if lowered.startswith(prefix):
             objective = objective[len(prefix):]
+            lowered = objective.lower()
+            break
+
+    # "origin of coffee" -> "coffee" so phrases like "historical origins and
+    # development of coffee" do not repeat the subject.
+    for phrase in (
+        "the origins of ",
+        "the origin of ",
+        "origins of ",
+        "origin of ",
+        "the history of ",
+        "history of ",
+    ):
+        if lowered.startswith(phrase):
+            objective = objective[len(phrase):]
             break
 
     # Cut at the first sentence boundary (".", ";", ":").
@@ -168,19 +193,43 @@ def _mock_topic(user: str) -> str:
     return objective or "the research focus"
 
 
+def _mock_intent(user: str) -> ReportIntent:
+    """Deterministic research profile for the objective (mock only)."""
+    objective = _mock_objective(user)
+    return detect_intent(objective) if objective else ReportIntent.GENERAL
+
+
 def _mock_text(user: str) -> str:
     return f"A brief research note on {_mock_topic(user)}, synthesized from the sources gathered during this run."
 
 
+def _is_query_plan_model(response_model) -> bool:
+    """True for any model whose only field is ``queries: list[str]``."""
+    if list(response_model.model_fields) != ["queries"]:
+        return False
+    annotation = response_model.model_fields["queries"].annotation
+    return get_origin(annotation) is list and get_args(annotation) == (str,)
+
+
 def _mock_structured(system: str, user: str, response_model):
     """Build a default mock instance for any Pydantic model."""
-    return _mock_model(response_model, _mock_topic(user))
+    topic = _mock_topic(user)
+    intent = _mock_intent(user)
+    # Any "queries": list[str] model is a research plan (this includes the
+    # planner's QueryPlan and ad-hoc equivalents used in tests).
+    if _is_query_plan_model(response_model):
+        return {"queries": _derive_queries(topic, intent)}
+    if response_model is SynthesisResult:
+        return _mock_synthesis(topic, intent)
+    if response_model is ReportOutline:
+        return _mock_report_outline(topic, intent)
+    if response_model is ResearchReportContent:
+        return _mock_report_content(topic, intent)
+    return _mock_model(response_model, topic)
 
 
 def _mock_model(response_model, topic: str, n: int = 0):
     """Fill every field of ``response_model`` with plausible, topic-aware content."""
-    from typing import get_args, get_origin
-
     fields: dict[str, Any] = {}
     for name, field in response_model.model_fields.items():
         origin = get_origin(field.annotation)
@@ -198,9 +247,6 @@ def _mock_model(response_model, topic: str, n: int = 0):
             fields[name] = False
         else:
             fields[name] = _mock_scalar(name, topic, n)
-    # The planner's query list is most useful when it resembles real queries.
-    if "queries" in response_model.model_fields:
-        fields["queries"] = _derive_queries(topic)
     return response_model(**fields)
 
 
@@ -227,8 +273,8 @@ def _mock_list_items(name: str, topic: str) -> list[str]:
         ]
     if label in ("open questions", "open question"):
         return [
-            f"Which trade-off does the ecosystem have not yet resolved conclusively for {topic}?",
-            f"How should best practice for {topic} evolve as the ecosystem matures?",
+            f"Which trade-off has the scholarly community not yet resolved conclusively for {topic}?",
+            f"What is the evidence gap that still limits confident conclusions about {topic}?",
         ]
     if label in ("key findings", "findings", "key finding"):
         return [
@@ -237,18 +283,18 @@ def _mock_list_items(name: str, topic: str) -> list[str]:
         ]
     if label in ("key concepts", "concepts", "concept"):
         return [
-            f"Core idea in {topic}: retrieval begins with indexing and ranking, not search.",
-            f"Core idea in {topic}: filter for relevance before going deep on any source.",
+            f"Core idea in {topic}, as the sources frame it: a few recurring themes hold the subject together.",
+            f"The material on {topic} repeatedly ground definitions in specific historical and social context.",
         ]
     if label == "history and background":
         return [
-            f"How thinking on {topic} developed from first principles to current practice.",
-            f"Key turning points and archives that shaped {topic}.",
+            f"How the subject of {topic} developed from its earliest traces to the present day.",
+            f"Key turning points, archives, and events that shaped {topic}.",
         ]
     if label == "important people":
         return [
-            f"Researchers and maintainers whose work defines {topic}.",
-            f"Community leads who publish consistently on {topic}.",
+            f"Historians, scholars, and practitioners whose work is central to the study of {topic}.",
+            f"Individuals and institutions cited most often in writing on {topic}.",
         ]
     if label == "technologies":
         return [
@@ -361,17 +407,141 @@ def _mock_scalar(name: str, topic: str, n: int = 0) -> str:
     return f"Material relevant to {t}."
 
 
-def _derive_queries(topic: str) -> list[str]:
-    """Derive plausible research queries from the objective text (mock only)."""
-    dimensions = [
-        "research papers and academic literature",
-        "existing implementations and open source projects",
-        "technical documentation and guides",
-        "libraries and tools",
-        "benchmarks and performance comparisons",
-        "limitations, challenges, and open problems",
+def _derive_queries(topic: str, intent: ReportIntent) -> list[str]:
+    """Derive plausible research queries that fit the objective's domain."""
+    t = topic.lower()
+    if intent is ReportIntent.BUILD:
+        would_be = [
+            f"overview, definition, and core concepts of {t}",
+            f"existing implementations and open-source projects for {t}",
+            f"architecture and system design of {t}",
+            f"core libraries and frameworks used for {t}",
+            f"benchmarks and performance comparisons of {t}",
+            f"limitations, challenges, and open problems in {t}",
+        ]
+    elif intent is ReportIntent.STUDY:
+        would_be = [
+            f"historical origins and development of {t}",
+            f"primary academic literature and scholarship on {t}",
+            f"key figures, pioneers, and institutions connected to {t}",
+            f"definitive texts, archives, and primary sources on {t}",
+            f"case studies and documented examples of {t}",
+            f"contemporary scholarly debates and open questions about {t}",
+        ]
+    else:
+        would_be = [
+            f"overview and definition of {t}",
+            f"academic literature and evidence on {t}",
+            f"key actors and institutions involved with {t}",
+            f"case studies and real-world examples of {t}",
+            f"contemporary debates and open questions about {t}",
+        ]
+    return would_be
+
+
+# --- intent-aware mock synthesis and report planning -----------------------
+
+
+def _mock_synthesis(topic: str, intent: ReportIntent) -> SynthesisResult:
+    """Mock synthesis: engineering summaries keep tech fields, others drop them."""
+    overview = _mock_scalar("overview", topic)
+    if intent is ReportIntent.BUILD:
+        existing_projects = _mock_list_items("existing projects", topic)
+        relevant_technologies = _mock_list_items("relevant technologies", topic)
+    else:
+        existing_projects = []
+        relevant_technologies = []
+    return SynthesisResult(
+        overview=overview,
+        existing_projects=existing_projects,
+        relevant_technologies=relevant_technologies,
+        important_sources=_mock_list_items("important sources", topic),
+        open_questions=_mock_list_items("open questions", topic),
+    )
+
+
+def _mock_report_outline(topic: str, intent: ReportIntent) -> ReportOutline:
+    """Plan a report section set that fits the objective's domain."""
+    if intent is ReportIntent.BUILD:
+        planned = [
+            ("Executive Summary", "One-paragraph summary of the whole report."),
+            ("Key Findings", "The most important conclusions supported by the sources."),
+            ("Existing Approaches", "Prior systems and existing work relevant to the objective."),
+            ("Architecture and System Design", "How the recommended system is organized and why."),
+            ("Core Libraries and Frameworks", "The main reusable components and frameworks."),
+            ("Build Plan", "A phased roadmap from prototype to production."),
+            ("Performance and Scalability", "Optimizations that matter under real load."),
+            ("Open Questions", "Genuinely unresolved issues the sources could not answer."),
+        ]
+    elif intent is ReportIntent.STUDY:
+        planned = [
+            ("Executive Summary", "One-paragraph summary of the whole report."),
+            ("Key Findings", "The most important conclusions supported by the sources."),
+            ("Historical Origins and Development", "How the subject developed from its beginnings to today."),
+            ("Primary Sources and Scholarship", "Seminal texts, archives, papers, and the academic record on the subject."),
+            ("Key Figures and Institutions", "The people and organizations central to the subject."),
+            ("Cultural and Economic Context", "The wider context in which the subject developed and matters."),
+            ("Contemporary Debates", "Current disagreements and interpretations in the scholarship."),
+            ("Open Questions", "Genuinely unresolved issues the sources could not answer."),
+        ]
+    else:
+        planned = [
+            ("Executive Summary", "One-paragraph summary of the whole report."),
+            ("Key Findings", "The most important conclusions supported by the sources."),
+            ("Overview and Background", "Basic facts, definitions, and framing of the subject."),
+            ("Key Actors and Institutions", "Who is involved and where the subject is centered."),
+            ("Evidence and Scholarship", "The academic record and the supporting data."),
+            ("Case Studies", "Concrete documented examples."),
+            ("Contemporary Debates", "Open questions and disagreements in the field."),
+            ("Open Questions", "Genuinely unresolved issues the sources could not answer."),
+        ]
+    return ReportOutline(
+        sections=[ReportSection(heading=heading, scope=scope) for heading, scope in planned]
+    )
+
+
+def _mock_report_content(topic: str, intent: ReportIntent) -> ResearchReportContent:
+    """Fill the planned report headings with plausible, on-topic bullets."""
+    outline = _mock_report_outline(topic, intent)
+    return ResearchReportContent(
+        sections=[
+            ReportSectionContent(heading=section.heading, items=_section_items(section.heading, topic))
+            for section in outline.sections
+        ]
+    )
+
+
+def _section_items(heading: str, topic: str) -> list[str]:
+    """Prose bullets for a dynamic report heading (mock only)."""
+    key = heading.lower()
+    if "summary" in key:
+        return [_mock_scalar("executive_summary", topic)]
+    if "finding" in key:
+        return _mock_list_items("key findings", topic)
+    if "history" in key or "origin" in key or "development" in key:
+        return _mock_list_items("history and background", topic)
+    if "figure" in key or "people" in key or "person" in key or "actor" in key or "institution" in key:
+        return _mock_list_items("important people", topic)
+    if "source" in key or "literature" in key or "scholar" in key or "archive" in key or "evidence" in key or "citation" in key:
+        return _mock_list_items("citations", topic)
+    if "concept" in key or "definition" in key or "overview" in key or "background" in key or "context" in key:
+        return _mock_list_items("key concepts", topic)
+    if "debate" in key or "question" in key:
+        return _mock_list_items("open questions", topic)
+    if "architecture" in key or "system design" in key or "structure" in key:
+        return _mock_list_items("architecture and structure", topic)
+    if "librar" in key or "framework" in key:
+        return _mock_list_items("libraries and frameworks", topic)
+    if "build" in key or "plan" in key or "roadmap" in key or "phase" in key:
+        return _mock_list_items("build plan", topic)
+    if "performance" in key or "scalab" in key or "optimiz" in key:
+        return _mock_list_items("optimizations", topic)
+    if "approach" in key or "project" in key or "implementation" in key or "case" in key or "example" in key:
+        return _mock_list_items("existing projects", topic)
+    return [
+        f"Relevant observation on {topic} for this section.",
+        f"A second observation on {topic} for this section.",
     ]
-    return [f"{topic} {dimension}".strip() for dimension in dimensions]
 
 
 def build_llm_provider(

@@ -92,3 +92,14 @@ class TestPlanner:
         labels = {query.dimension for query in queries}
         assert "core concept" in labels
         assert "benchmarks and performance" in labels
+
+    @pytest.mark.asyncio
+    async def test_mock_queries_fit_a_humanities_objective(self) -> None:
+        from app.llm.provider import MockLLMProvider
+
+        queries = await Planner(llm=MockLLMProvider()).plan("Study the origin of coffee")
+        text = " | ".join(query.query.lower() for query in queries)
+        assert "coffee" in text
+        assert "scholarship" in text or "academic" in text
+        assert "libraries" not in text
+        assert "implementations" not in text
