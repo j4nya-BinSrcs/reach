@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ResearchGap } from '../../types/research';
 
 interface ResearchGapCardProps {
@@ -6,6 +7,8 @@ interface ResearchGapCardProps {
 }
 
 export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <article
       className="animate-fade-in"
@@ -19,15 +22,9 @@ export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
         display: 'flex',
         flexDirection: 'column',
         gap: '0.75rem',
+        cursor: 'pointer',
       }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(232,168,76,0.3)';
-        (e.currentTarget as HTMLElement).style.background = 'rgba(232,168,76,0.07)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(232,168,76,0.18)';
-        (e.currentTarget as HTMLElement).style.background = 'rgba(232,168,76,0.04)';
-      }}
+      onClick={() => setExpanded((v) => !v)}
     >
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
@@ -77,7 +74,7 @@ export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
         {gap.title}
       </h3>
 
-      {/* Description */}
+      {/* Description — always visible */}
       <p
         style={{
           fontSize: '0.875rem',
@@ -88,19 +85,40 @@ export function ResearchGapCard({ gap, index }: ResearchGapCardProps) {
         {gap.description}
       </p>
 
-      {/* Caveat */}
-      <p
+      {/* Expandable caveat */}
+      <div
         style={{
-          fontSize: '0.75rem',
-          color: 'var(--text-subtle)',
-          lineHeight: 1.5,
-          borderTop: '1px solid rgba(232,168,76,0.1)',
-          paddingTop: '0.75rem',
-          fontStyle: 'italic',
+          maxHeight: expanded ? '600px' : '0',
+          overflow: 'hidden',
+          transition: 'max-height 0.3s ease',
         }}
       >
-        This question was not conclusively answered by the collected sources.
-      </p>
+        <p
+          style={{
+            fontSize: '0.75rem',
+            color: 'var(--text-subtle)',
+            lineHeight: 1.5,
+            borderTop: expanded ? '1px solid rgba(232,168,76,0.1)' : 'none',
+            paddingTop: expanded ? '0.75rem' : '0',
+            fontStyle: 'italic',
+          }}
+        >
+          This question was not conclusively answered by the collected sources.
+        </p>
+      </div>
+
+      {/* Expand hint */}
+      <span
+        style={{
+          alignSelf: 'flex-end',
+          fontSize: '0.6875rem',
+          color: 'var(--text-subtle)',
+          transition: 'opacity 0.2s ease',
+          opacity: expanded ? 0 : 1,
+        }}
+      >
+        {expanded ? '▲ less' : '▼ more'}
+      </span>
     </article>
   );
 }

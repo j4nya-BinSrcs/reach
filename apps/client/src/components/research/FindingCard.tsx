@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Finding } from '../../types/research';
 import type { Source } from '../../types/source';
 import { EvidenceReference } from './EvidenceReference';
@@ -9,7 +10,7 @@ interface FindingCardProps {
 }
 
 export function FindingCard({ finding, sources, index }: FindingCardProps) {
-  // Map source_ids to their global indices
+  const [expanded, setExpanded] = useState(false);
   const referencedSources = finding.source_ids.map((sid) => ({
     source: sources.find((s) => s.id === sid),
     globalIndex: sources.findIndex((s) => s.id === sid),
@@ -26,15 +27,9 @@ export function FindingCard({ finding, sources, index }: FindingCardProps) {
         transition: 'border-color 0.2s ease, background 0.2s ease',
         animationDelay: `${index * 60}ms`,
         position: 'relative',
+        cursor: 'pointer',
       }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-strong)';
-        (e.currentTarget as HTMLElement).style.background = 'var(--surface-elevated)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
-        (e.currentTarget as HTMLElement).style.background = 'var(--surface)';
-      }}
+      onClick={() => setExpanded((v) => !v)}
     >
       {/* Finding index */}
       <span
@@ -72,7 +67,7 @@ export function FindingCard({ finding, sources, index }: FindingCardProps) {
         {finding.title}
       </h3>
 
-      {/* Summary */}
+      {/* Summary — always visible */}
       <p
         style={{
           fontSize: '0.875rem',
@@ -84,37 +79,61 @@ export function FindingCard({ finding, sources, index }: FindingCardProps) {
         {finding.summary}
       </p>
 
-      {/* Source references */}
+      {/* Expandable detail */}
       {referencedSources.length > 0 && (
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            flexWrap: 'wrap',
+            maxHeight: expanded ? '600px' : '0',
+            overflow: 'hidden',
+            transition: 'max-height 0.3s ease',
           }}
         >
-          <span
+          <div
             style={{
-              fontSize: '0.6875rem',
-              color: 'var(--text-subtle)',
-              fontWeight: 500,
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              marginRight: '0.125rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              flexWrap: 'wrap',
+              paddingTop: expanded ? '0.75rem' : '0',
             }}
           >
-            Supported by
-          </span>
-          {referencedSources.map(({ source, globalIndex }) => (
-            <EvidenceReference
-              key={source!.id}
-              sourceIndex={globalIndex}
-              source={source}
-            />
-          ))}
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                color: 'var(--text-subtle)',
+                fontWeight: 500,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                marginRight: '0.125rem',
+              }}
+            >
+              Supported by
+            </span>
+            {referencedSources.map(({ source, globalIndex }) => (
+              <EvidenceReference
+                key={source!.id}
+                sourceIndex={globalIndex}
+                source={source}
+              />
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Expand hint */}
+      <span
+        style={{
+          position: 'absolute',
+          bottom: '0.75rem',
+          right: '1.5rem',
+          fontSize: '0.6875rem',
+          color: 'var(--text-subtle)',
+          transition: 'opacity 0.2s ease',
+          opacity: expanded ? 0 : 1,
+        }}
+      >
+        {expanded ? '▲ less' : '▼ more'}
+      </span>
     </article>
   );
 }
