@@ -9,13 +9,16 @@
 #   ./scripts/launch.sh                # full launch + smoke test
 #   REACH_BACKEND_ONLY=1 ./scripts/launch.sh   # backend API smoke test only
 #   RUN_E2E=1 ./scripts/launch.sh              # + browser E2E, then shut down
+#
+# Every run uses a throwaway database and a freshly built web bundle, and
+# shuts down every server it starts (including via process groups) so no
+# stale REACH process is ever left behind.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND="$ROOT/backend"
 WEB="$ROOT/apps/web"
-DATA="$ROOT/data"
 API_PORT="${API_PORT:-8000}"
 WEB_PORT="${WEB_PORT:-5173}"
 API="http://localhost:$API_PORT"
@@ -26,12 +29,6 @@ info()  { echo -e "${BOLD}[launch]${NC} $*"; }
 ok()    { echo -e "  ${GREEN}✓${NC} $*"; }
 warn()  { echo -e "  ${YELLOW}!${NC} $*"; }
 fail()  { echo -e "  ${RED}✗${NC} $*"; }
-
-PIDS=()
-cleanup() {
-  for pid in "${PIDS[@]:-}"; do kill "$pid" 2>/dev/null || true; done
-}
-trap cleanup EXIT INT TERM
 
 # ── 0. Must-have tooling ─────────────────────────────────
 command -v curl >/dev/null || { echo "curl is required"; exit 1; }
@@ -45,15 +42,46 @@ if [ ! -x "$BACKEND/.venv/bin/python" ]; then
   "$BACKEND/.venv/bin/pip" install -q -r "$BACKEND/requirements.txt"
 fi
 
-# ── 2. Database dir ──────────────────────────────────────
-mkdir -p "$DATA"
-rm -f "$DATA"/reach.db*   # fresh DB per launch smoke test
+# ── 2. Throwaway database for this run ────────────────────
+# Verification runs never touch (or wipe) the developer's real
+# data/reach.db; each run gets a fresh temp DB that is deleted on exit.
+SMOKE_DB="/tmp/reach-smoke.$$.db"
+rm -f "$SMOKE_DB" "$SMOKE_DB"-*
+cleanup() {
+  rm -f "$SMOKE_DB" "$SMOKE_DB"-* 2>/dev/null || true
+  local pid
+  for pid in "${PIDS[@]:-}"; do
+    kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+  done
+}
+trap cleanup EXIT INT TERM
 
-# ── 3. Start backend (mock mode) ─────────────────────────
+# ── 3. Preflight: stop stale REACH servers on our ports ───
+# An interrupted run can leave an old backend/frontend holding the ports
+# (and an old bundle/DB). Reap anything that looks like a REACH server so a
+# rerun never talks to stale code.
+stop_stale() {
+  local port pid
+  for port in "$API_PORT" "$WEB_PORT"; do
+    for pid in $(ss -ltnpH "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u); do
+      if ps -p "$pid" -o args= 2>/dev/null | grep -Eq 'uvicorn app[.]main|vite preview'; then
+        warn "stopping stale REACH server on :$port (pid $pid)"
+        kill "$pid" 2>/dev/null || true
+      fi
+    done
+  done
+  sleep 0.5
+}
+if command -v ss >/dev/null 2>&1; then stop_stale; else
+  warn "ss(8) not found — skipping stale-server check"
+fi
+
+# ── 4. Start backend (mock mode) ─────────────────────────
 info "Starting backend on $API (mock mode)…"
 (
   cd "$BACKEND"
-  REACH_MOCK_MODE=mock \
+  exec setsid env \
+    REACH_MOCK_MODE=mock REACH_DATABASE_PATH="$SMOKE_DB" \
     .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
     >/tmp/reach-backend.log 2>&1
 ) &
@@ -68,7 +96,7 @@ curl -fsS "$API/api/health" >/dev/null 2>&1 \
   || { fail "backend failed to start (see /tmp/reach-backend.log)"; exit 1; }
 ok "backend healthy"
 
-# ── 4. Build + serve frontend (unless backend-only) ──────
+# ── 5. Build + serve frontend (unless backend-only) ──────
 if [ "${REACH_BACKEND_ONLY:-0}" != "1" ]; then
   info "Building web app…"
   ( cd "$WEB" && npm run build >/tmp/reach-web-build.log 2>&1 ) \
@@ -76,7 +104,7 @@ if [ "${REACH_BACKEND_ONLY:-0}" != "1" ]; then
   ok "web build succeeded"
 
   info "Serving web app on http://localhost:$WEB_PORT…"
-  ( cd "$WEB" && npm run preview -- --port "$WEB_PORT" >/tmp/reach-web.log 2>&1 ) &
+  ( cd "$WEB" && exec setsid npm run preview -- --port "$WEB_PORT" >/tmp/reach-web.log 2>&1 ) &
   PIDS+=($!)
   for _ in $(seq 1 30); do
     if curl -fsS "http://localhost:$WEB_PORT" >/dev/null 2>&1; then break; fi
@@ -87,7 +115,7 @@ if [ "${REACH_BACKEND_ONLY:-0}" != "1" ]; then
   ok "web app serving"
 fi
 
-# ── 5. API smoke test: full product contract ─────────────
+# ── 6. API smoke test: full product contract ─────────────
 STATUS=0
 t () { # t <expected_status> <label> <curl...>
   local expected="$1"; shift
@@ -151,7 +179,7 @@ if [ -n "$SRC_B" ]; then
   t 200 "list comparisons"             "$API/api/research/$SESSION_ID/comparisons"
 fi
 
-# ── 6. Summary ───────────────────────────────────────────
+# ── 7. Summary ───────────────────────────────────────────
 echo
 if [ "$STATUS" = "0" ]; then
   echo -e "${GREEN}${BOLD}REACH product smoke test: ALL CHECKS PASSED${NC}"

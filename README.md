@@ -246,7 +246,11 @@ can star/save sources (`PATCH /api/research/{id}/sources/{sid}`), summarize
 one (`POST /api/research/{id}/sources/{sid}/summarize`), or compare two
 (`POST /api/research/{id}/compare`).
 
-Or run it all at once, GUI included, with `./scripts/launch.sh`.
+Or run it all at once, GUI included, with `./scripts/launch.sh` — a
+self-contained test launcher that boots a fresh demo database, builds and
+serves the web app, verifies the whole product contract, and shuts
+everything down with no leftover processes. (For persistent local
+research, use `make dev` with live keys instead.)
 
 ## Limitations
 
