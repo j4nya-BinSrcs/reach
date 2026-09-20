@@ -1,5 +1,6 @@
 """Domain models for research sources and their analysis."""
 
+import json
 from datetime import datetime
 from enum import Enum
 
@@ -58,6 +59,10 @@ class Source(BaseModel):
     content: str = ""
     fetch_status: SourceFetchStatus = SourceFetchStatus.PENDING
     analysis: SourceAnalysis = Field(default_factory=SourceAnalysis)
+    starred: bool = False
+    saved: bool = False
+    note: str = ""
+    tags: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
 
     def model_dump_stored(self) -> dict:
@@ -74,4 +79,8 @@ class Source(BaseModel):
             "content": self.content,
             "fetch_status": self.fetch_status.value,
             "analysis": self.analysis.model_dump_json(),
+            "starred": self.starred,
+            "saved": self.saved,
+            "note": self.note,
+            "tags": json.dumps(self.tags),
         }

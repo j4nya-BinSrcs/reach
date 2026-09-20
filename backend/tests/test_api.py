@@ -163,3 +163,79 @@ class TestReport:
 
     def test_report_not_found_for_missing_session(self, client: TestClient) -> None:
         assert client.get("/api/research/nope/report").status_code == 404
+
+
+class TestWorkspace:
+    def _completed_session(self, client: TestClient) -> tuple[str, list[dict]]:
+        response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
+        assert response.status_code == 201
+        session_id = response.json()["session_id"]
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            update = client.get(f"/api/research/{session_id}/status").json()
+            if update["status"] in {"complete", "failed"}:
+                break
+            time.sleep(0.05)
+        detail = client.get(f"/api/research/{session_id}").json()
+        return session_id, detail["sources"]
+
+    def test_workspace_lists_all_by_default(self, client: TestClient) -> None:
+        session_id, sources = self._completed_session(client)
+        response = client.get(f"/api/research/{session_id}/workspace")
+        assert response.status_code == 200
+        assert len(response.json()) == len(sources)
+
+    def test_star_save_tag_note_then_filters(self, client: TestClient) -> None:
+        session_id, sources = self._completed_session(client)
+        if not sources:
+            pytest.skip("mock run surfaced no sources")
+        source_id = sources[0]["id"]
+        response = client.patch(
+            f"/api/research/{session_id}/sources/{source_id}",
+            json={"starred": True, "saved": True, "note": "must revisit", "tags": ["core", "archive"]},
+        )
+        assert response.status_code == 200
+        updated = response.json()
+        assert updated["starred"] is True
+        assert updated["saved"] is True
+        assert updated["note"] == "must revisit"
+        assert updated["tags"] == ["core", "archive"]
+
+        all_workspace = client.get(f"/api/research/{session_id}/workspace").json()
+        assert any(source["id"] == source_id for source in all_workspace)
+        starred = client.get(f"/api/research/{session_id}/workspace", params={"starred": True}).json()
+        assert [source["id"] for source in starred] == [source_id]
+        saved = client.get(f"/api/research/{session_id}/workspace", params={"saved": True}).json()
+        assert [source["id"] for source in saved] == [source_id]
+
+        detail = client.get(f"/api/research/{session_id}").json()
+        matching = [s for s in detail["sources"] if s["id"] == source_id][0]
+        assert matching["starred"] is True
+        assert matching["note"] == "must revisit"
+
+    def test_workspace_patch_unknown_source_404(self, client: TestClient) -> None:
+        session_id, _ = self._completed_session(client)
+        response = client.patch(
+            f"/api/research/{session_id}/sources/999999",
+            json={"starred": True},
+        )
+        assert response.status_code == 404
+
+    def test_workspace_missing_session_404(self, client: TestClient) -> None:
+        assert client.get("/api/research/nope/workspace").status_code == 404
+
+    def test_summarize_single_source(self, client: TestClient) -> None:
+        session_id, sources = self._completed_session(client)
+        if not sources:
+            pytest.skip("mock run surfaced no sources")
+        source_id = sources[0]["id"]
+        response = client.post(f"/api/research/{session_id}/sources/{source_id}/summarize")
+        assert response.status_code == 200
+        payload = response.json()
+        assert "summary" in payload
+        assert "limitations" in payload
+
+    def test_summarize_unknown_source_404(self, client: TestClient) -> None:
+        session_id, _ = self._completed_session(client)
+        response = client.post(f"/api/research/{session_id}/sources/999999/summarize")
+        assert response.status_code == 404

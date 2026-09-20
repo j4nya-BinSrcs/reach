@@ -23,8 +23,9 @@ from app.models.research import (
     ResearchSessionDetail,
     SessionStatus,
 )
-from app.models.source import Source, SourceFetchStatus
+from app.models.source import Source, SourceAnalysis, SourceFetchStatus
 from app.search.provider import build_search_provider
+from app.sources.analyzer import SourceAnalyzer
 from app.sources.fetcher import SourceFetcher
 from app.storage.database import init_db
 from app.storage.repositories import (
@@ -149,6 +150,55 @@ class ResearchService:
 
     def get_report(self, session_id: str) -> ResearchReport | None:
         return self._sessions.get_report(session_id)
+
+    # --- workspace -----------------------------------------------------------
+
+    def get_workspace_sources(
+        self, session_id: str, starred: bool = False, saved: bool = False
+    ) -> list[Source]:
+        return self._sources.get_sources_workspace(session_id, starred=starred, saved=saved)
+
+    def update_source_workspace(
+        self,
+        session_id: str,
+        source_id: int,
+        starred: bool | None = None,
+        saved: bool | None = None,
+        note: str | None = None,
+        tags: list[str] | None = None,
+    ) -> Source:
+        """Mark, save, annotate, or tag a single session source."""
+        source = self._sources.get_source(session_id, source_id)
+        if source is None:
+            raise ValueError("Source not found in this session")
+        if starred is not None:
+            source.starred = starred
+        if saved is not None:
+            source.saved = saved
+        if note is not None:
+            source.note = note
+        if tags is not None:
+            source.tags = tags
+        self._sources.update_source(source)
+        return source
+
+    async def summarize_source(self, session_id: str, source_id: int) -> SourceAnalysis:
+        """Produce a focused, self-contained summary of a single source."""
+        source = self._sources.get_source(session_id, source_id)
+        if source is None:
+            raise ValueError("Source not found in this session")
+        session = self._sessions.get_session(session_id)
+        settings = self._settings
+        llm = build_llm_provider(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            base_url=settings.llm_base_url,
+            mock_mode=settings.mock_mode,
+        )
+        try:
+            return await SourceAnalyzer(llm=llm).analyze(source, session.objective)
+        finally:
+            await llm.close()
 
     # --- pipeline ------------------------------------------------------------
 
