@@ -1,11 +1,14 @@
 # REACH — Development Guide
 
-Setup, environment, and workflow for working on the REACH backend.
+Setup, environment, and workflow for working on the REACH monorepo
+(backend + web). For the fastest full-stack check, see
+[`scripts/launch.sh`](../scripts/launch.sh), which boots the backend in mock
+mode, builds and serves the web app, and smoke-tests the whole product.
 
 ## Prerequisites
 
 - Python 3.11+ (developed against 3.14)
-- pip
+- Node 20+ / npm (for the web app)
 - (optional) API keys for real research: an LLM key and a Tavily key
 
 ## Setup
@@ -19,6 +22,17 @@ source .venv/bin/activate
 # 2. Install dependencies
 pip install -r requirements.txt          # runtime
 pip install -r requirements-dev.txt      # tests
+
+# 3. Web dependencies
+cd ../apps/web && npm install
+```
+
+Or use the root Makefile once and reuse:
+
+```bash
+make setup
+make dev        # backend + web dev servers
+make test       # all backend + web checks
 ```
 
 ## Environment
@@ -50,7 +64,13 @@ Available routes:
 - `GET /api/health`
 - `POST /api/research` → `{"session_id": "..."}`
 - `GET /api/research/{id}/status`
-- `GET /api/research/{id}`
+- `GET /api/research/{id}` (full workspace payload incl. report)
+- `GET /api/research/{id}/report` (markdown)
+- `POST /api/research/{id}/compare` (similarities/differences/contradictions)
+- `GET /api/research/{id}/comparisons`
+- `GET /api/research/{id}/workspace` (`?starred=` / `?saved=`)
+- `PATCH /api/research/{id}/sources/{source_id}` (star/save/tag/note)
+- `POST /api/research/{id}/sources/{source_id}/summarize`
 - Interactive docs: `http://localhost:8000/docs`
 
 The provided launcher (`../scripts/dev.sh backend`) automates venv setup and
@@ -81,13 +101,21 @@ curl -s localhost:8000/api/research/$SID | python3 -m json.tool | head -60
 ### Running the tests
 
 ```bash
-cd backend
-.venv/bin/python -m pytest -q
+# backend
+cd backend && .venv/bin/python -m pytest -q
+cd backend && .venv/bin/python -m pyflakes app/ tests/
+
+# web
+cd apps/web && npm run lint && npm run build
+
+# everything at once
+make test
 ```
 
-The suite covers model validation, storage, search normalization/dedup,
-source classification/parsing/fetching, the LLM layer, planner, researcher,
-synthesizer, the research service, and the full API workflow (all hermetic —
+The backend suite covers model validation, storage, search
+normalization/dedup, source classification/parsing/fetching, the LLM layer,
+planner, researcher, synthesizer, comparator, report writer, workspace
+operations, the research service, and the full API workflow (all hermetic —
 no network or keys required).
 
 ### Test layout
@@ -102,6 +130,8 @@ backend/tests/
 ├── test_planner.py          query generation + fallback
 ├── test_agent.py            selection, discovery, fetch/analyze
 ├── test_synthesizer.py      provenance mapping + fallback
+├── test_comparator.py       pairwise comparison
+├── test_report_writer.py    markdown report generation + fallback
 ├── test_research_service.py service pipeline + failure paths
 └── test_api.py              full API workflow (mock mode)
 ```

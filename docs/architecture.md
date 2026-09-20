@@ -30,17 +30,28 @@ flowchart LR
 
 ### API layer — `app/api/routes/research.py`
 
-Three endpoints:
+Endpoints under `/api/research/{id}/…`:
 
 - `POST /api/research` — validate the objective, create a session row, and
   dispatch an in-process `asyncio` research task. Returns `session_id`.
 - `GET /api/research/{id}/status` — poll persisted progress
   (`status`, `progress` 0–100, `message`).
 - `GET /api/research/{id}` — assemble the full workspace payload
-  (queries, sources, findings, gaps, summary).
+  (queries, sources, findings, gaps, summary, report).
+- `GET /api/research/{id}/report` — the full markdown research report as
+  plain text.
+- `POST /api/research/{id}/compare` — pairwise comparison of two sources
+  (similarities, differences, contradictions), persisted per session.
+- `GET /api/research/{id}/comparisons` — past comparisons for the session.
+- `GET /api/research/{id}/workspace` — list sources, filterable by
+  `?starred=` / `?saved=`.
+- `PATCH /api/research/{id}/sources/{source_id}` — star/save/tag/note a
+  source in the workspace.
+- `POST /api/research/{id}/sources/{source_id}/summarize` — regenerate an
+  on-demand focused summary for a single source.
 
 No WebSockets: research progress is persisted to SQLite and the client
-polls, which is trivial and robust for the prototype.
+polls, which is trivial and robust.
 
 ### Research service — `app/services/research_service.py`
 
@@ -49,7 +60,7 @@ runs the deterministic pipeline, and persists each stage before moving on
 so an interrupted run still shows partial state:
 
 ```
-PLANNING → SEARCHING → FILTERING → FETCHING → ANALYZING → SYNTHESIZING → COMPLETE
+PLANNING → SEARCHING → FILTERING → FETCHING → ANALYZING → SYNTHESIZING → REPORT → COMPLETE
 ```
 
 Any uncaught failure marks the session `failed` with a human message; the
@@ -73,6 +84,25 @@ rest of a partially-completed session remains available.
   titles back to source ids for provenance, and produces open questions and
   the research summary. A fallback view keeps sessions complete if the
   model call fails.
+- **Comparator** (`comparator.py`): pairwise comparison of two analyzed
+  sources into a typed `SourceComparison` (similarities, differences,
+  contradictions), persisted per session via the comparison repository.
+- **Report writer** (`report_writer.py`): assembles the post-synthesis
+  markdown research report (objective, landscape, key sources, findings,
+  open questions, recommendations) via one structured LLM call to
+  `app/models/report.py`; a deterministic fallback section builder keeps
+  the report available even if the model call fails.
+
+### Comparison & workspace layer — `app/services/research_service.py`
+
+- `compare_sources` — runs the comparator for a session/source pair and
+  persists the result; `get_comparisons` returns history.
+- `get_workspace_sources` — returns session sources filtered by the
+  `starred`/`saved` flags.
+- `update_source_workspace` — patch `starred`/`saved`/`note`/`tags` on a
+  source.
+- `summarize_source` — regenerates a focused summary for one source via the
+  source analyzer.
 
 ### Search layer — `app/search/`
 
@@ -113,7 +143,8 @@ of the pipeline never depends on provider specifics.
   completions endpoint) and `MockLLMProvider` (schema-driven deterministic
   data for keyless runs).
 - `prompts.py` — all prompt text and `(system, user)` builders are
-  centralized here: planner, relevance, source analysis, synthesis.
+  centralized here: planner, relevance, source analysis, synthesis,
+  comparison (`COMPARISON_SYSTEM`), and report (`REPORT_SYSTEM`).
 
 ### Models — `app/models/`
 
@@ -121,17 +152,25 @@ Typed Pydantic schemas for everything the pipeline persists:
 
 - `research.py` — `ResearchSession`, `ProgressUpdate`, `StartResearchRequest`,
   `QueryPlan`, `SessionStatus`.
-- `source.py` — `Source`, `SourceAnalysis`, `SourceType`, `SourceFetchStatus`.
+- `source.py` — `Source`, `SourceAnalysis`, `SourceType`, `SourceFetchStatus`;
+  workspace fields `starred`, `saved`, `note`, `tags`.
 - `finding.py` — `Finding`, `ResearchGap`, `ResearchSynthesis`,
   `SynthesisResult`, `KeyFinding`, `OpenQuestion`.
+- `comparison.py` — `SourceComparison`, `ComparisonPoint`,
+  `ComparisonResult`.
+- `report.py` — `ReportIntent`, `ResearchReportContent`, `ResearchReport`.
 
 ### Storage — `app/storage/`
 
 SQLite via stdlib `sqlite3`. Tables: `research_sessions`, `queries`,
-`sources`, `findings`, `finding_sources` (provenance joins), and
-`research_gaps`. Repositories are small focused classes
-(`SessionRepository`, `SourceRepository`, `FindingRepository`) with short
-lived connections — no generic repository abstraction, no ORM.
+`sources`, `findings`, `finding_sources` (provenance joins),
+`research_gaps`, and `source_comparisons`. Schema updates are applied
+incrementally through a `_MIGRATIONS` registry (column additions such as
+`report` on sessions and the workspace fields on `sources`) so existing
+databases upgrade in place. Repositories are small focused classes
+(`SessionRepository`, `SourceRepository`, `FindingRepository`,
+`ComparisonRepository`) with short-lived connections — no generic
+repository abstraction, no ORM.
 
 ## Data flow (per research run)
 
@@ -146,14 +185,33 @@ objective
   ↓ synthesize       findings + source links (provenance)   → findings / finding_sources
   ↓                  open questions                         → research_gaps
   ↓                  research brief                          → sessions.synthesis
+  ↓ report           markdown research report                → sessions.report
   ↓ complete
 ```
 
-## Frontend (consumer contract)
+On-demand (post-run) flows operate on a completed session: pairwise
+`compare` persists to `source_comparisons`, and workspace operations
+(`GET /workspace`, `PATCH /sources/{id}`, `POST /sources/{id}/summarize`)
+read/update the `sources` table.
 
-The intended client is a two-view React SPA (landing + workspace) that
-renders the payloads from the three research endpoints. It is not part of
-this backend milestone; the API contract above is what it consumes.
+## Frontend — `apps/web/`
+
+React 19 + Vite + TypeScript + TanStack Query. The SPA has two routes:
+
+- **Home** — research objective entry, example prompts, and a progress
+  panel that polls `GET /api/research/{id}/status` through the lifetime of
+  a run; on completion it links to the session page.
+- **ResearchSession** — renders a completed run: summary
+  (`synthesis`), full findings, ranked source cards, the generated markdown
+  report, pairwise source comparison (select any two sources → compare →
+  results), and workspace actions on each source (star, save, tag, note,
+  on-demand summarize).
+
+A normalization layer in `apps/web/src/lib/api.ts` converts the backend
+wire format into typed view contracts (score ranges, `source_type`→`type`,
+gap `question/rationale`→`title/description`, provenance ids, etc.) so the
+UI is insulated from API shape drift. `vite.config.ts` proxies `/api` →
+`localhost:8000` in development.
 
 ## Design rules honored
 
@@ -162,6 +220,7 @@ this backend milestone; the API contract above is what it consumes.
 - Typed structured output everywhere; free-form text never persisted.
 - One failed source never kills a session.
 - No provenance hiding: findings carry the source ids that support them.
+- Reports and comparisons degrade gracefully to deterministic fallbacks.
 - No heavyweight infrastructure: no Redis/Celery/Kafka/vector DB.
 
 ## Future direction

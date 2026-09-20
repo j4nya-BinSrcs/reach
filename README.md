@@ -54,16 +54,20 @@ High-level layout:
 
 ```
 reach/
+├── apps/web/            React + Vite + TypeScript UI (implemented)
 ├── backend/             FastAPI + SQLite + agent pipeline (implemented)
 ├── docs/                architecture and development guides
 ├── data/                SQLite data directory (.gitignore)
-└── scripts/dev.sh       dev launcher
+├── scripts/             dev.sh (dev servers) · launch.sh (one-shot product test)
+└── Makefile             setup / test / run convenience targets
 ```
 
-## Tech stack (backend)
+## Tech stack
 
-Python · FastAPI · Pydantic v2 · httpx · BeautifulSoup4 · SQLite ·
-OpenAI-compatible LLM provider · Tavily search provider (both swappable)
+- **Backend:** Python · FastAPI · Pydantic v2 · httpx · BeautifulSoup4 ·
+  SQLite · OpenAI-compatible LLM provider · Tavily search provider (both
+  swappable)
+- **Frontend:** React 19 · Vite · TypeScript · TanStack Query
 
 ## Features
 
@@ -76,15 +80,31 @@ OpenAI-compatible LLM provider · Tavily search provider (both swappable)
   bounded retry.
 - **Source provenance** — findings reference the sources that support them.
 - **Open questions** surfaced separately from established findings.
+- **Research report** — a full markdown briefing generated from the run
+  (objective, landscape, sources, findings, gaps, recommendations).
+- **Pairwise source comparison** — similarities, differences, and
+  contradictions between any two sources.
+- **Workspace** — star/save sources, tag them, add notes, and summarize a
+  single source on demand.
 - **Progress API** — status is persisted and pollable end-to-end.
 - **Mock mode** — the entire pipeline runs keylessly for demo and CI.
 
 ## Project structure
 
 ```
+apps/web/
+├── src/
+│   ├── components/      common layout · research (input, progress,
+│   │                    summary, sources, report, comparison)
+│   ├── hooks/           TanStack Query hooks (session, sources)
+│   ├── lib/             api client + normalization layer · constants · utils
+│   ├── pages/           Home · ResearchSession
+│   └── types/           research · source view contracts
+└── vite.config.ts       /api → localhost:8000 dev proxy
+
 backend/
 ├── app/
-│   ├── agent/        planner · researcher · synthesizer
+│   ├── agent/        planner · researcher · synthesizer · comparator · report writer
 │   ├── api/routes/    research endpoints
 │   ├── llm/          provider abstraction · providers · prompts
 │   ├── search/        provider abstraction · Tavily/mock · URL utilities
@@ -94,13 +114,21 @@ backend/
 │   ├── storage/        SQLite schema + repositories
 │   ├── config.py       settings (REACH_* env)
 │   └── main.py         app factory
-├── tests/             114 tests, hermetic
+├── tests/             151 tests, hermetic
 └── README.md          backend README
 ```
 
 ## Local development
 
-Backend (see [backend/README.md](backend/README.md) and
+Everything is wired through the `Makefile` and `scripts/`:
+
+```bash
+make setup            # backend venv + web deps (once)
+make dev              # backend (:8000) + web dev server (:5173) side by side
+make test             # backend pytest + lint, then web lint + typecheck + build
+```
+
+Backend alone (see [backend/README.md](backend/README.md) and
 [docs/development.md](docs/development.md) for details):
 
 ```bash
@@ -112,13 +140,29 @@ REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --reload --port 8000
 
 Or use the launcher: `./scripts/dev.sh backend`.
 
+**One command tests the whole product** — the launch script boots the
+backend (mock mode), builds and serves the web app, then smoke-tests the
+complete API contract end to end (research run → report → comparison →
+workspace → summarize):
+
+```bash
+./scripts/launch.sh                    # full stack + smoke test
+REACH_BACKEND_ONLY=1 ./scripts/launch.sh   # backend API smoke test only
+```
+
 ## API
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `POST` | `/api/research` | Start research from an objective |
 | `GET` | `/api/research/{id}/status` | Poll progress (planning → … → complete/failed) |
-| `GET` | `/api/research/{id}` | Full workspace payload |
+| `GET` | `/api/research/{id}` | Full workspace payload (queries, sources, findings, gaps, report) |
+| `GET` | `/api/research/{id}/report` | Full markdown research report |
+| `POST` | `/api/research/{id}/compare` | Compare two sources (similarities/differences/contradictions) |
+| `GET` | `/api/research/{id}/comparisons` | Past comparisons for the session |
+| `GET` | `/api/research/{id}/workspace` | Starred/saved sources (`?starred=` `?saved=`) |
+| `PATCH` | `/api/research/{id}/sources/{sid}` | Star/save/tag/note a source |
+| `POST` | `/api/research/{id}/sources/{sid}/summarize` | On-demand source summary |
 | `GET` | `/api/health` | Health check |
 
 ## Environment variables
@@ -144,7 +188,12 @@ POST /api/research
 Poll `GET /api/research/{id}/status` until `complete`, then
 `GET /api/research/{id}` returns the workspace: queries, ranked sources
 with per-source analysis, findings with supporting source ids, open
-questions, and a research brief.
+questions, a research brief, and the full markdown report. From there you
+can star/save sources (`PATCH /api/research/{id}/sources/{sid}`), summarize
+one (`POST /api/research/{id}/sources/{sid}/summarize`), or compare two
+(`POST /api/research/{id}/compare`).
+
+Or run it all at once, GUI included, with `./scripts/launch.sh`.
 
 ## Limitations
 
@@ -155,6 +204,9 @@ questions, and a research brief.
 - Sessions are ephemeral and local; no cross-session knowledge graph,
   accounts, or collaboration.
 - A single bounded pass (≤7 queries, ≤15 sources) by design.
+- The web UI currently surfaces a session in depth (frontend polish for
+  cross-session history, dedicated workspace browsing, and the summarize
+  modal remain).
 
 ## Future scope
 

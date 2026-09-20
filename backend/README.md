@@ -56,8 +56,14 @@ from environment variables with the `REACH_` prefix (see
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/api/research` | Start a research session (`{"objective": "..."}`) → `{"session_id": "..."}` |
-| `GET` | `/api/research/{session_id}/status` | Poll live status + progress (`planning → searching → filtering → fetching → analyzing → synthesizing → complete/failed`) |
-| `GET` | `/api/research/{session_id}` | Full workspace payload (queries, sources, findings, gaps, summary) |
+| `GET` | `/api/research/{session_id}/status` | Poll live status + progress (`planning → … → synthesizing → report → complete/failed`) |
+| `GET` | `/api/research/{session_id}` | Full workspace payload (queries, sources, findings, gaps, summary, report) |
+| `GET` | `/api/research/{session_id}/report` | The generated markdown research report |
+| `POST` | `/api/research/{session_id}/compare` | Compare two sources → similarities / differences / contradictions |
+| `GET` | `/api/research/{session_id}/comparisons` | Comparisons generated for this session |
+| `GET` | `/api/research/{session_id}/workspace` | Sources, filterable by `?starred=` / `?saved=` |
+| `PATCH` | `/api/research/{session_id}/sources/{source_id}` | Star/save/tag/note a source |
+| `POST` | `/api/research/{session_id}/sources/{source_id}/summarize` | On-demand focused source summary |
 | `GET` | `/api/health` | Health check |
 
 Interactive docs are available at `/docs`.
@@ -73,11 +79,13 @@ objective
    → fetch (bounded)        httpx + parse to plain text, failures tolerated
    → analyze (LLM)          typed SourceAnalysis per source
    → synthesize (LLM)       findings, open questions, research brief
+   → report (LLM)           full markdown research report (with fallback)
    → persist                SQLite + mark complete
 ```
 
 Runs are lightweight in-process `asyncio` tasks (no Celery/Redis/workers);
-progress is persisted so clients poll it.
+progress is persisted so clients poll it. Comparisons and workspace
+operations run on demand against the completed session.
 
 ## Testing
 
@@ -85,27 +93,28 @@ progress is persisted so clients poll it.
 .venv/bin/python -m pytest -q
 ```
 
-The suite (114 tests) covers model validation, storage, URL normalization,
+The suite (151 tests) covers model validation, storage, URL normalization,
 deduplication, source classification, parsing, bounded fetching, the LLM
 layer's retry/validation behavior, the planner, researcher, synthesizer,
-and full API workflow in mock mode.
+comparator, report writer, workspace operations, and the full API workflow
+in mock mode.
 
 ## Project layout
 
 ```
 backend/
 ├── app/
-│   ├── agent/       planner, researcher, synthesizer
+│   ├── agent/       planner, researcher, synthesizer, comparator, report writer
 │   ├── api/routes/  research endpoints
 │   ├── llm/         provider abstraction, providers, centralized prompts
 │   ├── search/      provider abstraction, Tavily/mock, URL utilities
 │   ├── sources/     classifier, fetcher, parser, analyzer
 │   ├── models/      Pydantic domain + schema models
-│   ├── services/    research service (pipeline orchestrator)
-│   ├── storage/     SQLite schema + repositories
+│   ├── services/    research service (pipeline + workspace operations)
+│   ├── storage/     SQLite schema (+migrations) + repositories
 │   ├── config.py    settings (REACH_* env)
 │   └── main.py      application factory
-├── tests/           114 pytest tests
+├── tests/           151 pytest tests
 ├── requirements.txt / requirements-dev.txt
 └── .env.example
 ```
