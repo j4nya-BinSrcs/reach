@@ -32,7 +32,7 @@ GET /api/health
 **200**
 
 ```json
-{ "status": "ok", "service": "reach-backend" }
+{ "status": "ok", "service": "reach-server" }
 ```
 
 ---
@@ -306,7 +306,7 @@ Representative fields returned on sources:
 | `tags` | string[] | |
 | `created_at` | datetime | |
 
-Frontend normalization (`apps/web/src/lib/api.ts`) maps relevance to 0–100,
+Frontend normalization (`apps/client/src/lib/api.ts`) maps relevance to 0–100,
 `source_type` → `type`, and fetch statuses for view contracts.
 
 ## Typical client sequence

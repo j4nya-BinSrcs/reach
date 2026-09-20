@@ -27,8 +27,8 @@ pipeline, SQLite storage, FastAPI surface, React workspace UI).
 Supporting READMEs outside this folder:
 
 - [`../README.md`](../README.md) — project overview and quick start
-- [`../backend/README.md`](../backend/README.md) — backend-focused quick reference
-- [`../apps/web/README.md`](../apps/web/README.md) — web UI routes and commands
+- [`../server/README.md`](../server/README.md) — backend-focused quick reference
+- [`../apps/client/README.md`](../apps/client/README.md) — web UI routes and commands
 
 ## Reading order
 
@@ -38,9 +38,9 @@ Supporting READMEs outside this folder:
 
 ## Conventions
 
-- Environment variables use the `REACH_` prefix (see `backend/.env.example`).
+- Environment variables use the `REACH_` prefix (see `server/.env.example`).
 - Bounds cited in docs (≤7 queries, 8–15 sources, etc.) match runtime defaults
-  in `backend/app/config.py` and the agent modules unless stated otherwise.
+  in `server/app/config.py` and the agent modules unless stated otherwise.
 - Mock mode (`REACH_MOCK_MODE=mock`) is the hermetic path for CI, demos, and
   frontend work without live LLM/search keys.
 - Version of the documented system: **0.1.0** (API title in `app/main.py`).

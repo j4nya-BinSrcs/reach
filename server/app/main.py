@@ -30,7 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @application.get("/api/health", tags=["system"])
     async def health() -> dict:
-        return {"status": "ok", "service": "reach-backend"}
+        return {"status": "ok", "service": "reach-server"}
 
     application.include_router(research_router)
     return application

@@ -1,65 +1,65 @@
 # REACH — monorepo makefile
-# Convenience wrappers for the backend, web, and full-stack workflows.
+# Convenience wrappers for the server, client, and full-stack workflows.
 
 SHELL := /usr/bin/env bash
 ROOT  := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-BACKEND := $(ROOT)/backend
-WEB     := $(ROOT)/apps/web
+SERVER := $(ROOT)/server
+CLIENT := $(ROOT)/apps/client
 
-.PHONY: help setup setup-backend setup-web backend web test test-backend test-web test-unit test-e2e full dev drone clean
+.PHONY: help setup setup-server setup-client server client test test-server test-client test-unit test-e2e full dev drone clean
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 ## ── Setup ────────────────────────────────────────────────
 
-setup: setup-backend setup-web ## Install backend + web dependencies
+setup: setup-server setup-client ## Install server + client dependencies
 
-setup-backend: ## Create venv and install backend deps
-	cd $(BACKEND) && python3 -m venv .venv && .venv/bin/pip install -U pip
-	cd $(BACKEND) && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+setup-server: ## Create venv and install server deps
+	cd $(SERVER) && python3 -m venv .venv && .venv/bin/pip install -U pip
+	cd $(SERVER) && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 
-setup-web: ## Install web dependencies
-	cd $(WEB) && npm install
+setup-client: ## Install client dependencies
+	cd $(CLIENT) && npm install
 
 ## ── Run (dev) ────────────────────────────────────────────
 
-backend: ## Run the FastAPI backend (dev, reload)
-	./scripts/dev.sh backend
+server: ## Run the FastAPI server (dev, reload)
+	./scripts/dev.sh server
 
-web: ## Run the Vite dev server
-	./scripts/dev.sh frontend
+client: ## Run the Vite dev server
+	./scripts/dev.sh client
 
 ## ── Test ─────────────────────────────────────────────────
 
-test-backend: ## Run the backend test suite + lint
-	cd $(BACKEND) && .venv/bin/python -m pytest -q
-	cd $(BACKEND) && .venv/bin/python -m pyflakes app/ tests/
+test-server: ## Run the server test suite + lint
+	cd $(SERVER) && .venv/bin/python -m pytest -q
+	cd $(SERVER) && .venv/bin/python -m pyflakes app/ tests/
 
-test-web: ## Lint + typecheck + build the web app
-	cd $(WEB) && npm run lint && npm run build
+test-client: ## Lint + typecheck + build the client app
+	cd $(CLIENT) && npm run lint && npm run build
 
-test-unit: ## Web unit tests (vitest) + backend tests + lint
-	cd $(WEB) && npm run test
-	cd $(BACKEND) && .venv/bin/python -m pytest -q
-	cd $(BACKEND) && .venv/bin/python -m pyflakes app/ tests/
+test-unit: ## Client unit tests (vitest) + server tests + lint
+	cd $(CLIENT) && npm run test
+	cd $(SERVER) && .venv/bin/python -m pytest -q
+	cd $(SERVER) && .venv/bin/python -m pyflakes app/ tests/
 
 test-e2e: ## Boot the product via launch.sh and drive it with a headless browser
 	RUN_E2E=1 ./scripts/launch.sh
 
-test: test-backend test-web ## Run all static/lint/build checks
+test: test-server test-client ## Run all static/lint/build checks
 
 ## ── Full product ─────────────────────────────────────────
 
-full: ## Launch backend + web and smoke-test the whole product
+full: ## Launch server + client and smoke-test the whole product
 	./scripts/launch.sh
 
-dev: ## Launch backend and web dev servers side by side
-	./scripts/dev.sh backend &
-	./scripts/dev.sh frontend
+dev: ## Launch server and client dev servers side by side
+	./scripts/dev.sh server &
+	./scripts/dev.sh client
 
 ## ── Clean ────────────────────────────────────────────────
 
 clean: ## Remove venv, node_modules, build outputs
-	rm -rf $(BACKEND)/.venv $(WEB)/node_modules $(WEB)/dist $(ROOT)/data/*.db*
-	rm -rf $(BACKEND)/.pytest_cache $(BACKEND)/.mypy_cache $(BACKEND)/.ruff_cache
+	rm -rf $(SERVER)/.venv $(CLIENT)/node_modules $(CLIENT)/dist $(ROOT)/data/*.db*
+	rm -rf $(SERVER)/.pytest_cache $(SERVER)/.mypy_cache $(SERVER)/.ruff_cache

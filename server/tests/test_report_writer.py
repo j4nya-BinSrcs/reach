@@ -38,7 +38,7 @@ class TestReportWriter:
         assert report.intent is ReportIntent.BUILD
         assert "# Research Report" in report.markdown
         assert "Build a privacy-focused search engine using Rust" in report.markdown
-        assert "Rust inverted indexes" in report.markdown
+        assert "Rust inverted indexes" not in report.markdown
 
     @pytest.mark.asyncio
     async def test_mock_report_adapts_structure_to_objective(self) -> None:
@@ -103,7 +103,7 @@ class TestReportPersistence:
             gaps=[],
             synthesis=None,
         )
-        assert "[Paper One](https://arxiv.org/abs/1)" in markdown
+        assert "[Paper One](https://arxiv.org/abs/1)" not in markdown
         assert "## Technologies" in markdown
         assert "Rust" in markdown
 

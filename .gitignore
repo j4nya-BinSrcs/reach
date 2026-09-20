@@ -27,10 +27,10 @@ data/*.db-shm
 node_modules/
 dist/
 .cache/
-apps/web/dist/
-apps/web/.vite/
-apps/web/test-results/
-apps/web/playwright-report/
+apps/client/dist/
+apps/client/.vite/
+apps/client/test-results/
+apps/client/playwright-report/
 
 # OS / editor
 .DS_Store

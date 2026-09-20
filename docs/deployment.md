@@ -41,7 +41,7 @@ No Redis, Celery, Kafka, or vector database.
 
 ## 3. Configuration checklist
 
-Copy `backend/.env.example` → `backend/.env` (or inject env in the process
+Copy `server/.env.example` → `server/.env` (or inject env in the process
 manager). Required for real research:
 
 - [ ] `REACH_LLM_API_KEY`
@@ -61,7 +61,7 @@ secret stores in any hosted environment.
 Example production-ish single node:
 
 ```bash
-cd backend
+cd server
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 export REACH_MOCK_MODE=off
@@ -80,16 +80,16 @@ shared DB — out of scope for v0.1.
 
 ### Health
 
-Probe `GET /api/health` → `{ "status": "ok", "service": "reach-backend" }`.
+Probe `GET /api/health` → `{ "status": "ok", "service": "reach-server" }`.
 
 ## 5. Frontend delivery
 
 Build static assets:
 
 ```bash
-cd apps/web
+cd apps/client
 npm ci
-npm run build    # outputs apps/web/dist
+npm run build    # outputs apps/client/dist
 ```
 
 Serve `dist/` with any static file server (nginx, Caddy, object storage +
@@ -174,7 +174,7 @@ application logs, and alert on health-check failures and elevated 5xx/429.
 
 v0.1 does not ship an official Dockerfile. A minimal pattern:
 
-1. Multi-stage build: Node stage builds `apps/web/dist`; Python stage
+1. Multi-stage build: Node stage builds `apps/client/dist`; Python stage
    installs backend deps.
 2. Copy web assets into an image served by nginx **or** serve API-only and
    host static assets separately.
@@ -187,7 +187,7 @@ v0.1 does not ship an official Dockerfile. A minimal pattern:
 ```text
 install backend deps → pytest + pyflakes
 install web deps → lint + build
-optional: REACH_BACKEND_ONLY=1 ./scripts/launch.sh
+optional: REACH_SERVER_ONLY=1 ./scripts/launch.sh
 ```
 
 Keep CI on mock mode. Never inject production secrets into PR builds.

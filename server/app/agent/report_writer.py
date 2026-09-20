@@ -120,7 +120,14 @@ def _render_markdown(
     gaps: list[ResearchGap],
     synthesis: ResearchSynthesis | None,
 ) -> str:
-    """Render planned sections and anchored data sections into markdown."""
+    """Render the planned, content-filled sections into a detailed markdown document.
+
+    The report is the deep, non-redundant product: it carries the full planned
+    narrative with every section filled from the analyzed website material. The
+    source list, findings, open questions, comparisons, and workspace get their
+    own dedicated surfaces in the UI, so none of them are duplicated here as a
+    trailing appendix.
+    """
     lines: list[str] = ["# Research Report\n", f"**Objective:** {objective}\n"]
     lines.append(f"**Research profile:** {intent.value}\n")
 
@@ -130,17 +137,6 @@ def _render_markdown(
         items = _items_of(filled.items) if filled else []
         if items:
             lines.extend([_heading(section.heading), *[f"- {item}" for item in items]])
-
-    if findings:
-        lines.extend([_heading("Source Findings"), *[f"- **{finding.title}** — {finding.summary}" for finding in findings]])
-    if gaps:
-        lines.extend([_heading("Research Gaps"), *[f"- {gap.question}" for gap in gaps]])
-    if synthesis and synthesis.existing_projects:
-        lines.extend([_heading("Existing Projects"), *[f"- {project}" for project in synthesis.existing_projects]])
-    if synthesis and synthesis.relevant_technologies:
-        lines.extend([_heading("Relevant Technologies"), *[f"- {technology}" for technology in synthesis.relevant_technologies]])
-    if sources:
-        lines.extend([_heading("Sources"), *[f"- [{source.title or source.url}]({source.url})" for source in sources]])
 
     return "\n".join(lines).strip() + "\n"
 

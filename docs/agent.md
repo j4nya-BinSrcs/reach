@@ -1,7 +1,7 @@
 # REACH — Agent subsystem
 
 REACH’s research intelligence is a **deterministic orchestration** of
-specialized agents under `backend/app/agent/`, coordinated by
+specialized agents under `server/app/agent/`, coordinated by
 `ResearchService`. LLMs are used only where structured reasoning adds value;
 classification, URL hygiene, ranking, and bounds are code-first.
 
@@ -241,7 +241,7 @@ Persisted on `research_sessions.report` and served as plain text via
 
 ## 8. Prompt centralization
 
-All system/user prompt builders live in `backend/app/llm/prompts.py`
+All system/user prompt builders live in `server/app/llm/prompts.py`
 (planner, source analysis, synthesis, comparison, report). Agents should
 not embed large prompt strings inline.
 

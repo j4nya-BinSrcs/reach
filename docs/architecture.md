@@ -37,8 +37,8 @@ flowchart LR
 
 ```
 reach/
-├── apps/web/            React 19 + Vite + TypeScript + TanStack Query
-├── backend/             FastAPI + agents + SQLite
+├── apps/client/            React 19 + Vite + TypeScript + TanStack Query
+├── server/             FastAPI + agents + SQLite
 ├── docs/                This documentation set
 ├── data/                SQLite database directory (gitignored contents)
 ├── scripts/             dev.sh · launch.sh
@@ -145,7 +145,7 @@ objective
 On-demand flows: `compare` → `source_comparisons`; workspace PATCH/GET/summarize
 → `sources`.
 
-## Frontend — `apps/web/`
+## Frontend — `apps/client/`
 
 React 19 + Vite + TypeScript + TanStack Query.
 

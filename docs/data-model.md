@@ -2,8 +2,8 @@
 
 Canonical domain and persistence model for REACH sessions, sources,
 findings, gaps, comparisons, and reports. Pydantic models live under
-`backend/app/models/`; SQLite DDL and migrations under
-`backend/app/storage/database.py`.
+`server/app/models/`; SQLite DDL and migrations under
+`server/app/storage/database.py`.
 
 Related: [api.md](api.md) · [architecture.md](architecture.md) · [agent.md](agent.md).
 
@@ -140,7 +140,7 @@ Persistence helper `model_dump_stored()` JSON-encodes `analysis` and `tags`.
 ## 4. SQLite schema
 
 Database path default: `REACH_DATABASE_PATH=../data/reach.db` (resolved from
-the backend package). Connection defaults: `foreign_keys=ON`,
+the server package). Connection defaults: `foreign_keys=ON`,
 `journal_mode=WAL`, `busy_timeout=5000`.
 
 ### `research_sessions`
@@ -262,7 +262,7 @@ No generic repository base class and no ORM layer by design.
 
 ## 7. Frontend view contracts
 
-`apps/web/src/types/research.ts` and `types/source.ts` mirror backend concepts
+`apps/client/src/types/research.ts` and `types/source.ts` mirror backend concepts
 with UI-friendly naming. `lib/api.ts` normalizes:
 
 | Backend | Frontend view |
@@ -273,7 +273,7 @@ with UI-friendly naming. `lib/api.ts` normalizes:
 | `fetch_status: skipped` | `pending` |
 | gap `question` / `rationale` | `title` / `description` |
 
-The UI must not persist alternate schemas; the backend remains the source of
+The UI must not persist alternate schemas; the server remains the source of
 truth.
 
 ## 8. Data lifecycle

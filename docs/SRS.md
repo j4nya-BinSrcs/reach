@@ -45,11 +45,11 @@ See [CRM.md](CRM.md) § Domain glossary. Additional:
 
 ### 1.4 References
 
-- Repository code under `backend/` and `apps/web/`
+- Repository code under `server/` and `apps/client/`
 - [architecture.md](architecture.md), [workflow.md](workflow.md),
   [agent.md](agent.md), [data-model.md](data-model.md), [testing.md](testing.md),
   [deployment.md](deployment.md), [accessibility.md](accessibility.md)
-- `backend/.env.example`, `Makefile`, `scripts/launch.sh`
+- `server/.env.example`, `Makefile`, `scripts/launch.sh`
 
 ### 1.5 Overview
 
@@ -315,7 +315,7 @@ Minimum verification before release of a behavior change:
 
 1. `make test`
 2. Update this SRS if requirements change
-3. `REACH_BACKEND_ONLY=1 ./scripts/launch.sh` for orchestration/API changes
+3. `REACH_SERVER_ONLY=1 ./scripts/launch.sh` for orchestration/API changes
 
 ---
 

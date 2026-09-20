@@ -1,7 +1,7 @@
 # REACH — Accessibility
 
 Accessibility (a11y) expectations and current patterns for the REACH web
-UI (`apps/web`). REACH v0.1 is a research workspace prototype; this
+UI (`apps/client`). REACH v0.1 is a research workspace prototype; this
 document records **what is already implemented**, **targets**, and
 **known gaps**.
 

@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # REACH — single-command product launcher + end-to-end smoke test.
 #
-# Starts the backend (mock mode), serves the built frontend, then verifies
+# Starts the server (mock mode), serves the built client, then verifies
 # the complete product contract: regular research run, markdown report,
 # source comparison, workspace marking, and single-source summarization.
 #
 # Usage:
 #   ./scripts/launch.sh                # full launch + smoke test
-#   REACH_BACKEND_ONLY=1 ./scripts/launch.sh   # backend API smoke test only
+#   REACH_SERVER_ONLY=1 ./scripts/launch.sh   # server API smoke test only
 #   RUN_E2E=1 ./scripts/launch.sh              # + browser E2E, then shut down
 #
-# Every run uses a throwaway database and a freshly built web bundle, and
+# Every run uses a throwaway database and a freshly built client bundle, and
 # shuts down every server it starts (including via process groups) so no
 # stale REACH process is ever left behind.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKEND="$ROOT/backend"
-WEB="$ROOT/apps/web"
+SERVER="$ROOT/server"
+CLIENT="$ROOT/apps/client"
 API_PORT="${API_PORT:-8000}"
 WEB_PORT="${WEB_PORT:-5173}"
 API="http://localhost:$API_PORT"
@@ -34,12 +34,12 @@ fail()  { echo -e "  ${RED}✗${NC} $*"; }
 command -v curl >/dev/null || { echo "curl is required"; exit 1; }
 command -v python3 >/dev/null || { echo "python3 is required"; exit 1; }
 
-# ── 1. Backend venv ──────────────────────────────────────
-if [ ! -x "$BACKEND/.venv/bin/python" ]; then
-  info "Creating backend virtualenv (one-time)…"
-  python3 -m venv "$BACKEND/.venv"
-  "$BACKEND/.venv/bin/pip" install -q -U pip
-  "$BACKEND/.venv/bin/pip" install -q -r "$BACKEND/requirements.txt"
+# ── 1. Server venv ───────────────────────────────────────
+if [ ! -x "$SERVER/.venv/bin/python" ]; then
+  info "Creating server virtualenv (one-time)…"
+  python3 -m venv "$SERVER/.venv"
+  "$SERVER/.venv/bin/pip" install -q -U pip
+  "$SERVER/.venv/bin/pip" install -q -r "$SERVER/requirements.txt"
 fi
 
 # ── 2. Throwaway database for this run ────────────────────
@@ -57,7 +57,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ── 3. Preflight: stop stale REACH servers on our ports ───
-# An interrupted run can leave an old backend/frontend holding the ports
+# An interrupted run can leave an old server/client holding the ports
 # (and an old bundle/DB). Reap anything that looks like a REACH server so a
 # rerun never talks to stale code.
 stop_stale() {
@@ -76,43 +76,42 @@ if command -v ss >/dev/null 2>&1; then stop_stale; else
   warn "ss(8) not found — skipping stale-server check"
 fi
 
-# ── 4. Start backend (mock mode) ─────────────────────────
-info "Starting backend on $API (mock mode)…"
+# ── 4. Start server (mock mode) ──────────────────────────
+info "Starting server on $API (mock mode)…"
 (
-  cd "$BACKEND"
+  cd "$SERVER"
   exec setsid env \
     REACH_MOCK_MODE=mock REACH_DATABASE_PATH="$SMOKE_DB" \
     .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
-    >/tmp/reach-backend.log 2>&1
+    >/tmp/reach-server.log 2>&1
 ) &
 PIDS+=($!)
-BACKEND_PID=$!
 
 for _ in $(seq 1 30); do
   if curl -fsS "$API/api/health" >/dev/null 2>&1; then break; fi
   sleep 0.3
 done
 curl -fsS "$API/api/health" >/dev/null 2>&1 \
-  || { fail "backend failed to start (see /tmp/reach-backend.log)"; exit 1; }
-ok "backend healthy"
+  || { fail "server failed to start (see /tmp/reach-server.log)"; exit 1; }
+ok "server healthy"
 
-# ── 5. Build + serve frontend (unless backend-only) ──────
-if [ "${REACH_BACKEND_ONLY:-0}" != "1" ]; then
-  info "Building web app…"
-  ( cd "$WEB" && npm run build >/tmp/reach-web-build.log 2>&1 ) \
-    || { fail "web build failed (see /tmp/reach-web-build.log)"; exit 1; }
-  ok "web build succeeded"
+# ── 5. Build + serve client (unless server-only) ──────────
+if [ "${REACH_SERVER_ONLY:-0}" != "1" ]; then
+  info "Building client app…"
+  ( cd "$CLIENT" && npm run build >/tmp/reach-client-build.log 2>&1 ) \
+    || { fail "client build failed (see /tmp/reach-client-build.log)"; exit 1; }
+  ok "client build succeeded"
 
-  info "Serving web app on http://localhost:$WEB_PORT…"
-  ( cd "$WEB" && exec setsid npm run preview -- --port "$WEB_PORT" >/tmp/reach-web.log 2>&1 ) &
+  info "Serving client app on http://localhost:$WEB_PORT…"
+  ( cd "$CLIENT" && exec setsid npm run preview -- --port "$WEB_PORT" >/tmp/reach-client.log 2>&1 ) &
   PIDS+=($!)
   for _ in $(seq 1 30); do
     if curl -fsS "http://localhost:$WEB_PORT" >/dev/null 2>&1; then break; fi
     sleep 0.3
   done
   curl -fsS "http://localhost:$WEB_PORT" >/dev/null 2>&1 \
-    || { fail "web app failed to start (see /tmp/reach-web.log)"; exit 1; }
-  ok "web app serving"
+    || { fail "client app failed to start (see /tmp/reach-client.log)"; exit 1; }
+  ok "client app serving"
 fi
 
 # ── 6. API smoke test: full product contract ─────────────
@@ -183,18 +182,18 @@ fi
 echo
 if [ "$STATUS" = "0" ]; then
   echo -e "${GREEN}${BOLD}REACH product smoke test: ALL CHECKS PASSED${NC}"
-  echo -e "  backend : $API        (docs at $API/docs)"
-  [ "${REACH_BACKEND_ONLY:-0}" != "1" ] && \
-    echo -e "  web app : http://localhost:$WEB_PORT"
+  echo -e "  server  : $API        (docs at $API/docs)"
+  [ "${REACH_SERVER_ONLY:-0}" != "1" ] && \
+    echo -e "  client  : http://localhost:$WEB_PORT"
   echo
 else
   echo -e "${RED}${BOLD}REACH product smoke test: ${STATUS} check(s) failed${NC}"
   exit "$STATUS"
 fi
 
-# In backend-only (CI) mode, shut down after a successful test.
-if [ "${REACH_BACKEND_ONLY:-0}" = "1" ]; then
-  info "Backend-only test complete; shutting down."
+# In server-only (CI) mode, shut down after a successful test.
+if [ "${REACH_SERVER_ONLY:-0}" = "1" ]; then
+  info "Server-only test complete; shutting down."
   exit 0
 fi
 
@@ -202,7 +201,7 @@ fi
 # Chromium), then shut down regardless of the result.
 if [ "${RUN_E2E:-0}" = "1" ]; then
   info "Running browser E2E against http://localhost:$WEB_PORT…"
-  if ( cd "$WEB" && npm run test:e2e ); then
+  if ( cd "$CLIENT" && npm run test:e2e ); then
     echo -e "${GREEN}${BOLD}REACH browser E2E: PASSED${NC}"
   else
     echo -e "${RED}${BOLD}REACH browser E2E: FAILED${NC}"

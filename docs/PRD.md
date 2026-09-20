@@ -5,7 +5,7 @@
 | Product | REACH — Research Exploration, Aggregation & Context Hub |
 | Version | 0.1.0 |
 | Status | Implemented prototype (local / single-user) |
-| Primary surfaces | Web SPA (`apps/web`) · FastAPI backend (`backend`) |
+| Primary surfaces | Web SPA (`apps/client`) · FastAPI server (`server`) |
 | Related docs | [CRM.md](CRM.md) · [SRS.md](SRS.md) · [architecture.md](architecture.md) · [limitations.md](limitations.md) |
 
 ## 1. Vision

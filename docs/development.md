@@ -26,30 +26,30 @@ make clean            # remove venv, node_modules, dist, local DBs
 Or use the scripts directly:
 
 ```bash
-./scripts/dev.sh backend
-./scripts/dev.sh frontend
+./scripts/dev.sh server
+./scripts/dev.sh client
 ./scripts/launch.sh                 # full product smoke
-REACH_BACKEND_ONLY=1 ./scripts/launch.sh
+REACH_SERVER_ONLY=1 ./scripts/launch.sh
 ```
 
 ## Manual setup
 
 ```bash
 # Backend
-cd backend
+cd server
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env                # add keys for real research
 
 # Web
-cd ../apps/web && npm install
+cd ../apps/client && npm install
 ```
 
 ## Environment
 
 All configuration uses the `REACH_` prefix. Copy
-[`backend/.env.example`](../backend/.env.example) → `backend/.env`.
+[`server/.env.example`](../server/.env.example) → `server/.env`.
 **Never commit real keys.**
 
 | Variable | Purpose | Default / notes |
@@ -58,21 +58,21 @@ All configuration uses the `REACH_` prefix. Copy
 | `REACH_LLM_BASE_URL` | OpenAI-compatible base URL | `https://api.openai.com/v1` |
 | `REACH_LLM_MODEL` | Model name | `gpt-4o-mini` |
 | `REACH_SEARCH_API_KEY` | Tavily (or configured) key | empty |
-| `REACH_SEARCH_PROVIDER` | Search backend id | `tavily` |
+| `REACH_SEARCH_PROVIDER` | Search provider id | `tavily` |
 | `REACH_SEARCH_RESULTS_PER_QUERY` | Results per planned query | `10` |
 | `REACH_SEARCH_MAX_QUERIES` | Upper bound on queries | `7` |
 | `REACH_MOCK_MODE` | `off` \| `mock` | `off` |
-| `REACH_DATABASE_PATH` | SQLite path (rel. to backend) | `../data/reach.db` |
+| `REACH_DATABASE_PATH` | SQLite path (rel. to server) | `../data/reach.db` |
 | `REACH_FETCH_MAX_BYTES` | Fetch body cap | `300000` |
 | `REACH_FETCH_TIMEOUT_SECONDS` | Per-fetch timeout | `15` |
 | `REACH_CORS_ORIGINS` | Comma-separated origins | Vite localhost ports |
 
-Settings load in `backend/app/config.py` via pydantic-settings.
+Settings load in `server/app/config.py` via pydantic-settings.
 
 ## Running the backend
 
 ```bash
-cd backend
+cd server
 REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
@@ -88,7 +88,7 @@ Useful URLs:
 ## Running the web app
 
 ```bash
-cd apps/web
+cd apps/client
 npm run dev          # http://localhost:5173 — proxies /api → :8000
 npm run lint         # oxlint
 npm run build        # tsc -b && vite build
@@ -96,12 +96,12 @@ npm run preview      # serve production bundle
 ```
 
 Routes: `/` (Home), `/research/:id` (session workspace). See
-[`apps/web/README.md`](../apps/web/README.md).
+[`apps/client/README.md`](../apps/client/README.md).
 
 ## End-to-end curl (mock)
 
 ```bash
-cd backend
+cd server
 REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --port 8000 &
 
 SID=$(curl -s -X POST localhost:8000/api/research \
@@ -132,15 +132,15 @@ documentation commits.
 
 | Concern | Location |
 | --- | --- |
-| HTTP routes | `backend/app/api/routes/research.py` |
-| Pipeline orchestration | `backend/app/services/research_service.py` |
-| Agents | `backend/app/agent/` |
-| Prompts | `backend/app/llm/prompts.py` |
-| Models | `backend/app/models/` |
-| SQLite | `backend/app/storage/` |
-| Web API client | `apps/web/src/lib/api.ts` |
-| UI pages | `apps/web/src/pages/` |
-| Research components | `apps/web/src/components/research/` |
+| HTTP routes | `server/app/api/routes/research.py` |
+| Pipeline orchestration | `server/app/services/research_service.py` |
+| Agents | `server/app/agent/` |
+| Prompts | `server/app/llm/prompts.py` |
+| Models | `server/app/models/` |
+| SQLite | `server/app/storage/` |
+| Web API client | `apps/client/src/lib/api.ts` |
+| UI pages | `apps/client/src/pages/` |
+| Research components | `apps/client/src/components/research/` |
 
 ## Code style expectations
 

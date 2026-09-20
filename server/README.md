@@ -1,4 +1,4 @@
-# REACH backend
+# REACH server
 
 Research Exploration, Aggregation & Context Hub — backend API.
 
@@ -17,7 +17,7 @@ questions, all traceable back to their original sources.
 ## Quick start
 
 ```bash
-cd backend
+cd server
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env      # add real keys
@@ -102,7 +102,7 @@ in mock mode.
 ## Project layout
 
 ```
-backend/
+server/
 ├── app/
 │   ├── agent/       planner, researcher, synthesizer, comparator, report writer
 │   ├── api/routes/  research endpoints

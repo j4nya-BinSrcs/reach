@@ -23,21 +23,21 @@ Related: [development.md](development.md) · [api.md](api.md) · [agent.md](agen
 make test
 
 # Backend only
-cd backend
+cd server
 .venv/bin/python -m pytest -q
 .venv/bin/python -m pyflakes app/ tests/
 
 # Web only
-cd apps/web
+cd apps/client
 npm run lint
 npm run build
 
 # Product smoke (boots servers)
 ./scripts/launch.sh
-REACH_BACKEND_ONLY=1 ./scripts/launch.sh
+REACH_SERVER_ONLY=1 ./scripts/launch.sh
 ```
 
-Pytest discovers tests under `backend/tests/`. Prefer `-q` for concise CI
+Pytest discovers tests under `server/tests/`. Prefer `-q` for concise CI
 output; use `-k <expr>` for focused runs while developing.
 
 ## 3. Backend suite layout
@@ -121,7 +121,7 @@ The launcher:
 2. Wipes `data/reach.db*` for a clean run.
 3. Starts uvicorn with `REACH_MOCK_MODE=mock`.
 4. Optionally builds and previews the web app (skip with
-   `REACH_BACKEND_ONLY=1`).
+   `REACH_SERVER_ONLY=1`).
 5. Exercises the API contract end-to-end:
    - health
    - reject short objective

@@ -129,6 +129,6 @@ re-runs. See [PRD.md](PRD.md) § Future scope.
 | Cap of 15 sources | Selector returning 50 sources |
 | No login | Session data leaking across intended auth boundaries (N/A today) |
 
-When in doubt, check whether an automated test in `backend/tests` already
+When in doubt, check whether an automated test in `server/tests` already
 encodes the bound; if yes, changing it is a product decision, not a silent
 fix.
