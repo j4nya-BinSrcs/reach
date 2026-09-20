@@ -1,0 +1,106 @@
+"""SQLite persistence layer for the REACH backend.
+
+The prototype persists only the compact session data needed to render a
+research workspace: sessions, queries, sources, findings, and gaps.
+"""
+
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS research_sessions (
+    id          TEXT PRIMARY KEY,
+    objective   TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    progress    INTEGER NOT NULL DEFAULT 0,
+    message     TEXT NOT NULL DEFAULT '',
+    error       TEXT,
+    synthesis   TEXT,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS queries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL REFERENCES research_sessions(id) ON DELETE CASCADE,
+    query       TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sources (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL REFERENCES research_sessions(id) ON DELETE CASCADE,
+    url         TEXT NOT NULL,
+    title       TEXT NOT NULL DEFAULT '',
+    source_type TEXT NOT NULL DEFAULT 'other',
+    domain      TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    snippet     TEXT NOT NULL DEFAULT '',
+    relevance   REAL NOT NULL DEFAULT 0.0,
+    content     TEXT NOT NULL DEFAULT '',
+    fetch_status TEXT NOT NULL DEFAULT 'pending',
+    analysis    TEXT NOT NULL DEFAULT '{}',
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS findings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL REFERENCES research_sessions(id) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    summary     TEXT NOT NULL DEFAULT '',
+    position    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS finding_sources (
+    finding_id  INTEGER NOT NULL REFERENCES findings(id) ON DELETE CASCADE,
+    source_id   INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    PRIMARY KEY (finding_id, source_id)
+);
+
+CREATE TABLE IF NOT EXISTS research_gaps (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL REFERENCES research_sessions(id) ON DELETE CASCADE,
+    question    TEXT NOT NULL,
+    rationale   TEXT NOT NULL DEFAULT '',
+    position    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_queries_session   ON queries(session_id);
+CREATE INDEX IF NOT EXISTS idx_sources_session   ON sources(session_id);
+CREATE INDEX IF NOT EXISTS idx_sources_url       ON sources(session_id, url);
+CREATE INDEX IF NOT EXISTS idx_findings_session  ON findings(session_id);
+CREATE INDEX IF NOT EXISTS idx_gaps_session      ON research_gaps(session_id);
+"""
+
+
+def connect(path: Path) -> sqlite3.Connection:
+    """Open a SQLite connection with sane defaults for the prototype."""
+    connection = sqlite3.connect(str(path))
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA journal_mode = WAL")
+    connection.execute("PRAGMA busy_timeout = 5000")
+    return connection
+
+
+@contextmanager
+def session_connection(path: Path) -> Iterator[sqlite3.Connection]:
+    """Context manager yielding a connection that commits on success."""
+    connection = connect(path)
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
+def init_db(path: Path) -> None:
+    """Create the schema (idempotent)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with session_connection(path) as connection:
+        connection.executescript(SCHEMA)
