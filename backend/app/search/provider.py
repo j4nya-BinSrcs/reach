@@ -98,7 +98,7 @@ class MockSearchProvider(SearchProvider):
         return SearchResult(
             title=f"{template['title']} — {query[:48]}",
             url=f"https://{template['host']}/{index}-{query.replace(' ', '-').lower()[:40]}",
-            snippet=f"Mock snippet {index} related to \"{query}\". {template['blurb']}",
+            snippet=f"\"{query}\" — {template['blurb']}",
             source_domain=template["host"],
             score=max(0.0, 1.0 - index * 0.08),
             query=query,

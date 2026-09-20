@@ -122,7 +122,7 @@ class SourceFetcher:
             title = request.url.path.strip("/").rsplit("/", 1)[-1].replace("-", " ") or host
             body = (
                 "<!doctype html><html><head><title>"
-                f"{title} — REACH mock page"
+                f"{title} — overview"
                 "</title></head><body>"
                 "<p>This document covers the topic using search indexing, inverted indexes, "
                 f"full-text search, and implementations relevant to the objective ({host}).</p>"
