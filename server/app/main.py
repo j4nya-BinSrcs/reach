@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.research import router as research_router
-from app.config import Settings, settings
+from app.config import Settings
 from app.services.research_service import ResearchService
 
 logging.basicConfig(
@@ -16,11 +16,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-_default_settings = settings
-
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    application_settings = settings or _default_settings
+    application_settings = settings or Settings()
     application = FastAPI(
         title="REACH API",
         description="Research Exploration, Aggregation & Context Hub — backend API.",

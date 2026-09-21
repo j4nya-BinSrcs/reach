@@ -44,14 +44,14 @@ test-unit: ## Client unit tests (vitest) + server tests + lint
 	cd $(SERVER) && .venv/bin/python -m pytest -q
 	cd $(SERVER) && .venv/bin/python -m pyflakes app/ tests/
 
-test-e2e: ## Boot the product via launch.sh and drive it with a headless browser
-	RUN_E2E=1 ./scripts/launch.sh
+test-e2e: ## Run Playwright E2E (start ./scripts/launch.sh first in another terminal)
+	cd $(CLIENT) && npm run test:e2e
 
 test: test-server test-client ## Run all static/lint/build checks
 
 ## ── Full product ─────────────────────────────────────────
 
-full: ## Launch server + client and smoke-test the whole product
+full: ## Launch API server + Vite client against local SQLite
 	./scripts/launch.sh
 
 dev: ## Launch server and client dev servers side by side
