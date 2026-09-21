@@ -81,10 +81,14 @@ if command -v ss >/dev/null 2>&1; then stop_stale; else
 fi
 
 # ── 4. Start smoke server (real pipeline, throwaway DB) ───
+# The smoke runs KEYLESS (no LLM/search keys) so it is fast, robust,
+# and never hits rate limits: real web search + content-grounded
+# extractive analysis. It never touches the product DB.
 info "Starting smoke server on $API (real pipeline, throwaway DB)…"
 (
   cd "$SERVER"
-  exec setsid env -u REACH_DATABASE_PATH \
+  exec setsid env -u REACH_MOCK_MODE -u REACH_DATABASE_PATH \
+    REACH_LLM_API_KEY="" REACH_SEARCH_API_KEY="" \
     REACH_DATABASE_PATH="$SMOKE_DB" \
     .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
     >/tmp/reach-server.log 2>&1
@@ -92,10 +96,10 @@ info "Starting smoke server on $API (real pipeline, throwaway DB)…"
 SMOKE_PID=$!
 
 for _ in $(seq 1 30); do
-  if curl -fsS "$API/api/health" >/dev/null 2>&1; then break; fi
+  curl -fsS --max-time 2 "$API/api/health" >/dev/null 2>&1 && break
   sleep 0.3
 done
-curl -fsS "$API/api/health" >/dev/null 2>&1 \
+curl -fsS --max-time 2 "$API/api/health" >/dev/null 2>&1 \
   || { fail "server failed to start (see /tmp/reach-server.log)"; exit 1; }
 ok "server healthy"
 
@@ -130,7 +134,7 @@ t () { # t <expected_status> <label> <curl...>
 
 fatal_on_failed_run() { # curl the status; abort if the run failed
   local st
-  st=$(curl -s "$API/api/research/$SESSION_ID/status" | python3 -c 'import sys,json;print(json.load(sys.stdin)["status"])')
+  st=$(curl -s --max-time 5 "$API/api/research/$SESSION_ID/status" | python3 -c 'import sys,json;print(json.load(sys.stdin)["status"])')
   [ "$st" = "failed" ] && { fail "research run FAILED"; exit 1; }
 }
 
@@ -144,11 +148,10 @@ SESSION_ID=$(python3 -c 'import json;s=json.load(open("/tmp/reach-body.json"));p
 ok "session id = $SESSION_ID"
 
 # A real research run searches the live web, fetches pages, and analyzes
-# them; give it generous time (rate-limited live models fall back to the
-# content-grounded extractive provider, so runs still complete).
-info "waiting for research to complete — this can take several minutes…"
+# them (keyless: no LLM key, so it is fast and never rate-limited).
+info "waiting for research to complete…"
 for _ in $(seq 1 600); do
-  st=$(curl -s "$API/api/research/$SESSION_ID/status" | python3 -c 'import sys,json;print(json.load(sys.stdin)["status"])')
+  st=$(curl -s --max-time 5 "$API/api/research/$SESSION_ID/status" | python3 -c 'import sys,json;print(json.load(sys.stdin)["status"])')
   [ "$st" = "complete" ] && break
   fatal_on_failed_run
   sleep 2
