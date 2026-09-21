@@ -112,3 +112,28 @@ class TestMockProvider:
 
         with pytest.raises(ValueError):
             OpenAICompatibleProvider(api_key="", model="gpt-4o-mini")
+
+    @pytest.mark.asyncio
+    async def test_resilient_falls_back_to_extractive_when_live_llm_fails(self) -> None:
+        from app.llm.base import LLMError
+        from app.llm.resilient import ResilientLLMProvider
+
+        class BrokenProvider(LLMProvider):
+            name = "broken"
+
+            async def _generate_text(self, system: str, user: str) -> str:
+                raise LLMError("down")
+
+        provider = ResilientLLMProvider(BrokenProvider())
+        plan = await provider.generate_structured("", "RESEARCH OBJECTIVE\nBuild a search engine in Rust", QueryPlan)
+        assert 3 <= len(plan.queries) <= 7
+        assert all(isinstance(q, str) for q in plan.queries)
+
+    @pytest.mark.asyncio
+    async def test_resilient_uses_primary_when_it_works(self) -> None:
+        from app.llm.resilient import ResilientLLMProvider
+
+        plan = await ResilientLLMProvider(FakeProvider(['{"queries": ["from primary"]}'])).generate_structured(
+            "sys", "obj", QueryPlan
+        )
+        assert plan.queries == ["from primary"]
