@@ -56,6 +56,8 @@ _MESSAGES = {
     SessionStatus.FETCHING: "Fetching selected sources",
     SessionStatus.ANALYZING: "Analyzing source content",
     SessionStatus.SYNTHESIZING: "Building the research brief and open questions",
+    SessionStatus.COMPLETE: "Research complete — sources analyzed, findings and report ready",
+    SessionStatus.FAILED: "Research could not be completed",
 }
 
 

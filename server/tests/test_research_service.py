@@ -77,15 +77,21 @@ class TestResearchService:
         assert session.id not in service._runs
 
     @pytest.mark.asyncio
-    async def test_config_error_marks_session_failed(self, tmp_path: Path) -> None:
-        """No keys and no mock mode means provider construction fails."""
-        service = _service(tmp_path / "f.db", mock_mode="off", llm_api_key="", search_api_key="")
+    async def test_provider_failure_marks_session_failed(self, tmp_path: Path, monkeypatch) -> None:
+        """A provider-construction failure mid-run leaves a clear failed state."""
+        from app.llm.base import LLMError
+
+        def _boom(*args, **kwargs):
+            raise LLMError("provider config rejected")
+
+        monkeypatch.setattr("app.services.research_service.build_llm_provider", _boom)
+        service = _service(tmp_path / "f.db", mock_mode="off")
         session = await service.start(OBJECTIVE)
-        status = await _wait_for_terminal(service, session.id, timeout=5.0)
+        status = await _wait_for_terminal(service, session.id, timeout=15.0)
         assert status is SessionStatus.FAILED
         failed = service.get_session(session.id)
         assert failed is not None
-        assert failed.error
+        assert "provider config rejected" in (failed.error or "")
 
     @pytest.mark.asyncio
     async def test_concurrency_limit(self, tmp_path: Path, monkeypatch) -> None:

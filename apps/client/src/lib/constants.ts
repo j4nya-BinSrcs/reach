@@ -52,6 +52,7 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   tool:          'Tool',
   project:       'Project',
   article:       'Article',
+  discussion:    'Discussion',
   other:         'Other',
 };
 

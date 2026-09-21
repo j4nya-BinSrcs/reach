@@ -14,6 +14,7 @@ const SOURCE_TYPE_ICONS: Record<SourceType, string> = {
   tool:          '🔧',
   project:       '🌐',
   article:       '📝',
+  discussion:    '💬',
   other:         '○',
 };
 

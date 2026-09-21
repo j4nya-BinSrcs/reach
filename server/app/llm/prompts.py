@@ -133,6 +133,7 @@ def synthesis_prompts(objective: str, analyses: list[SourceAnalysis], sources: l
         points = "\n".join(f"- {point}" for point in analysis.key_points)
         blocks.append(
             f"[{index}] {source.title} ({source.url})\n"
+            f"   Type: {source.source_type.value} — relevance {source.relevance:.2f}\n"
             f"   Summary: {analysis.summary}\n"
             f"   Key points:\n{points}\n"
             f"   Technologies: {', '.join(analysis.technologies)}"

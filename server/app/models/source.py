@@ -16,6 +16,7 @@ class SourceType(str, Enum):
     TOOL = "tool"
     PROJECT = "project"
     ARTICLE = "article"
+    DISCUSSION = "discussion"
     OTHER = "other"
 
 

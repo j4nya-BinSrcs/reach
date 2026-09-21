@@ -12,6 +12,7 @@ import httpx
 from app.search.base import SearchProvider
 from app.search.models import SearchResult
 from app.search.utils import extract_domain
+from app.search.web_provider import WebSearchProvider
 
 logger = logging.getLogger(__name__)
 
@@ -123,10 +124,23 @@ def build_search_provider(
 ) -> SearchProvider:
     """Construct the configured search provider.
 
-    ``mock_mode`` of "mock" forces the mock provider regardless of name.
+    Resolution order:
+
+    - ``mock_mode == "mock"`` → deterministic offline provider (test/demo only;
+      never the product default).
+    - ``provider_name == "tavily"`` with a key → live Tavily API.
+    - otherwise → the real keyless :class:`WebSearchProvider`, which searches
+      public endpoints (DuckDuckGo, Wikipedia, arXiv, Crossref, GitHub,
+      StackExchange, Hacker News, Reddit) with no API key and never fabricates
+      results.
     """
     if mock_mode == "mock":
         return MockSearchProvider(results_per_query=results_per_query)
-    if provider_name == "tavily":
+    known = {"tavily", "web", "keyless", "auto"}
+    if provider_name not in known:
+        raise ValueError(f"unknown search provider: {provider_name!r}")
+    if provider_name == "tavily" and api_key:
         return TavilySearchProvider(api_key=api_key)
-    raise ValueError(f"Unknown search provider: {provider_name}")
+    if provider_name == "tavily":
+        logger.warning("tavily requested but no API key configured; falling back to keyless web search")
+    return WebSearchProvider()

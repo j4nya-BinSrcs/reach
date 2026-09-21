@@ -97,8 +97,18 @@ class TestMockProvider:
         assert analysis.key_points
 
     @pytest.mark.asyncio
-    async def test_fails_without_key(self) -> None:
+    async def test_keyless_run_uses_extractive_provider(self) -> None:
+        from app.llm.extractive import ExtractiveLLMProvider
         from app.llm.provider import build_llm_provider
 
+        provider = build_llm_provider(api_key="", model="gpt-4o-mini", mock_mode="off")
+        assert isinstance(provider, ExtractiveLLMProvider)
+        plan = await provider.generate_structured("", "RESEARCH OBJECTIVE\nBuild a search engine in Rust", QueryPlan)
+        assert 3 <= len(plan.queries) <= 7
+        assert all(isinstance(q, str) for q in plan.queries)
+
+    def test_openai_provider_requires_key(self) -> None:
+        from app.llm.provider import OpenAICompatibleProvider
+
         with pytest.raises(ValueError):
-            build_llm_provider(api_key="", model="gpt-4o-mini")
+            OpenAICompatibleProvider(api_key="", model="gpt-4o-mini")

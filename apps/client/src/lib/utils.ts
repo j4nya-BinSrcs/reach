@@ -44,6 +44,7 @@ export function sourceTypeColor(type: SourceType): string {
     tool:          'var(--green)',
     project:       'var(--green)',
     article:       'var(--text-muted)',
+    discussion:    'var(--accent)',
     other:         'var(--text-subtle)',
   };
   return map[type] ?? 'var(--text-muted)';
@@ -57,6 +58,7 @@ export function sourceTypeBg(type: SourceType): string {
     tool:          'var(--green-dim)',
     project:       'var(--green-dim)',
     article:       'rgba(255,255,255,0.04)',
+    discussion:    'var(--accent-dim)',
     other:         'rgba(255,255,255,0.03)',
   };
   return map[type] ?? 'rgba(255,255,255,0.04)';

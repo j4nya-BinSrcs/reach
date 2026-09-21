@@ -561,7 +561,18 @@ def build_llm_provider(
     base_url: str | None = None,
     mock_mode: str = "off",
 ) -> LLMProvider:
-    """Construct the configured LLM provider."""
+    """Construct the configured LLM provider.
+
+    ``mock`` mode keeps the deterministic :class:`MockLLMProvider` (used by
+    the hermetic test suite and explicit demo runs). With a real API key the
+    OpenAI-compatible provider is used. With no key at all the keyless
+    :class:`ExtractiveLLMProvider` takes over and grounds analysis in the
+    actual fetched source material, so the product works without any keys.
+    """
+    from app.llm.extractive import build_extractive_provider
+
     if mock_mode == "mock":
         return MockLLMProvider()
-    return OpenAICompatibleProvider(api_key=api_key, model=model, base_url=base_url)
+    if api_key:
+        return OpenAICompatibleProvider(api_key=api_key, model=model, base_url=base_url)
+    return build_extractive_provider()

@@ -22,7 +22,7 @@ const STATUS_NORMALIZER: Record<string, FetchStatus> = {
 };
 
 function normalizeSourceType(value: string): SourceType {
-  const valid: SourceType[] = ['paper', 'github', 'documentation', 'tool', 'project', 'article', 'other'];
+  const valid: SourceType[] = ['paper', 'github', 'documentation', 'tool', 'project', 'article', 'discussion', 'other'];
   return valid.includes(value as SourceType) ? (value as SourceType) : 'other';
 }
 

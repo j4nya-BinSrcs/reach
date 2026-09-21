@@ -28,6 +28,23 @@ _ACADEMIC_DOMAINS = (
     "scholar.google.com",
 )
 
+_DISCUSSION_DOMAINS = (
+    "stackoverflow.com",
+    "serverfault.com",
+    "superuser.com",
+    "askubuntu.com",
+    "stackexchange.com",
+    "softwareengineering.stackexchange.com",
+    "mathoverflow.net",
+    "reddit.com",
+    "news.ycombinator.com",
+    "discourse.org",
+    "discuss.python.org",
+    "internals.rust-lang.org",
+    "users.rust-lang.org",
+    "devforum.roblox.com",
+)
+
 
 def classify_source(url: str, title: str = "") -> SourceType:
     """Return a :class:`SourceType` based on deterministic signals."""
@@ -44,6 +61,10 @@ def classify_source(url: str, title: str = "") -> SourceType:
         return SourceType.GITHUB
     if domain in {"gitlab.com", "bitbucket.org", "codeberg.org"}:
         return SourceType.PROJECT
+
+    # --- community discussions / forums ---------------------------------------
+    if any(marker in domain for marker in _DISCUSSION_DOMAINS):
+        return SourceType.DISCUSSION
 
     # --- documentation ---------------------------------------------------------
     if any(

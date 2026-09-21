@@ -85,5 +85,6 @@ class TestSource:
             "tool",
             "project",
             "article",
+            "discussion",
             "other",
         }

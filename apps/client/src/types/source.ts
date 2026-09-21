@@ -7,6 +7,7 @@ export type SourceType =
   | 'tool'
   | 'project'
   | 'article'
+  | 'discussion'
   | 'other';
 
 export type FetchStatus = 'success' | 'partial' | 'failed' | 'pending';

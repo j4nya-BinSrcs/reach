@@ -94,7 +94,9 @@ reach/
 - **Summarize modal** — a focused analysis of any single source on demand.
 - **Comparison history** — past pairwise comparisons are persisted and
   rendered with their source titles.
-- **Mock mode** — the entire pipeline runs keylessly for demo and CI.
+- **Keyless by default** — real search from public endpoints and real
+  extractive analysis of fetched content with zero API keys; mock mode
+  additionally runs the whole pipeline hermetically for demo/CI.
 
 ## Project structure
 
@@ -115,14 +117,14 @@ server/
 │   ├── agent/        planner · researcher · synthesizer · comparator · report writer
 │   ├── api/routes/    research endpoints
 │   ├── llm/          provider abstraction · providers · prompts
-│   ├── search/        provider abstraction · Tavily/mock · URL utilities
-│   ├── sources/       classifier · fetcher · parser · analyzer
+│   ├── search/        provider abstraction · keyless web · Tavily · mock
+│   ├── sources/       classifier · fetcher · parser · analyzer · extractor
 │   ├── models/        Pydantic domain + schema models
 │   ├── services/      research service orchestrator
 │   ├── storage/        SQLite schema + repositories
 │   ├── config.py       settings (REACH_* env)
 │   └── main.py         app factory
-├── tests/             156 tests, hermetic
+├── tests/             160 tests, hermetic
 └── README.md          server README
 ```
 
@@ -144,8 +146,8 @@ Server alone (see [server/README.md](server/README.md) and
 ```bash
 cd server
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
-cp .env.example .env                       # add keys for real research
-REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --reload --port 8000
+cp .env.example .env                       # add keys for real research (optional)
+.venv/bin/uvicorn app.main:app --reload --port 8000   # keyless real mode by default
 ```
 
 Or use the launcher: `./scripts/dev.sh server`.
@@ -178,27 +180,47 @@ make test-e2e                              # equivalent to RUN_E2E=1 ./scripts/l
 | `POST` | `/api/research/{id}/sources/{sid}/summarize` | On-demand source summary |
 | `GET` | `/api/health` | Health check |
 
-## Configuration: mock mode vs. real keys
+## Configuration: mock mode vs. keyless vs. real keys
 
 All secrets and options use the `REACH_` prefix; see
 [`server/.env.example`](server/.env.example). Real keys are never
 committed.
 
-### Mock mode (no keys — demo/CI)
+### Keyless mode (default — real research, no keys)
 
-Run the backend with `REACH_MOCK_MODE=mock` and the whole pipeline executes
-hermetically (no LLM, no search, no network). This is what
-`scripts/launch.sh` uses, so every check — the API smoke test, and the
-browser E2E — runs keylessly:
+With no API keys configured at all (`REACH_MOCK_MODE` unset or `off`, the
+default), REACH still runs **real** research:
+
+- the keyless `WebSearchProvider` aggregates live results from public
+  endpoints — DuckDuckGo, Wikipedia, arXiv, Crossref, GitHub, StackExchange,
+  Hacker News, Reddit — so every source URL, title, and snippet is real;
+- the deterministic `ExtractiveLLMProvider` analyzes the **actual fetched
+  content** of each source (summaries, key points, technologies, open
+  questions, report sections, pairwise comparisons), so nothing is canned
+  and nothing is fabricated.
+
+This is a great zero-setup first run:
+
+```bash
+cd server
+.venv/bin/uvicorn app.main:app --port 8000
+```
+
+### Mock mode (hermetic demo/CI)
+
+Set `REACH_MOCK_MODE=mock` and the whole pipeline executes hermetically (no
+LLM, no search, no network) with deterministic mock providers. This is what
+`scripts/launch.sh` and the test suite use, so the API smoke test and the
+browser E2E run keylessly and deterministically:
 
 ```bash
 REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --port 8000
 ```
 
-### Real keys (live research)
+### Real keys (live LLM + Tavily search)
 
 Copy `server/.env.example` to `server/.env` and fill in values. The
-pipeline needs two providers:
+pipeline supports two live providers:
 
 1. **LLM provider** — any OpenAI-compatible chat-completions API. The
    project is verified against Groq:
@@ -219,18 +241,17 @@ pipeline needs two providers:
    REACH_SEARCH_PROVIDER=tavily
    ```
 
-Then set `REACH_MOCK_MODE=off` (default) and start the backend normally;
-every research run now uses the live providers. No frontend configuration
-is required — the UI calls the backend exclusively, so it is identical in
-mock and live modes.
+With either key set, `REACH_MOCK_MODE` must stay `off` (default); research
+runs use the live providers. No frontend configuration is required — the UI
+calls the backend exclusively, so it is identical across all three modes.
 
 ## Example research session
 
-With mock mode (no keys):
+The default keyless mode runs real research without any keys:
 
 ```bash
 cd server
-REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --port 8000
+.venv/bin/uvicorn app.main:app --port 8000
 ```
 
 ```http
@@ -249,13 +270,15 @@ one (`POST /api/research/{id}/sources/{sid}/summarize`), or compare two
 Or run it all at once, GUI included, with `./scripts/launch.sh` — a
 self-contained test launcher that boots a fresh demo database, builds and
 serves the web app, verifies the whole product contract, and shuts
-everything down with no leftover processes. (For persistent local
-research, use `make dev` with live keys instead.)
+everything down with no leftover processes. (It uses hermetic mock mode for
+determinism; for persistent live research use `make dev` or the keyless
+default instead.)
 
 ## Limitations
 
-- Real research requires live LLM and search API keys; mock mode is for
-  demo/CI.
+- Real live LLM analysis needs an API key (Tavily is optional — keyless
+  search and keyless extractive analysis work without any keys); mock mode
+  is for deterministic demo/CI only.
 - HTML/plain-text fetching — JS-heavy pages and many PDFs degrade to thin
   or unavailable content (surfaced per source).
 - Sessions are ephemeral and local; no cross-session knowledge graph,
