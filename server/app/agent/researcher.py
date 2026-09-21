@@ -211,11 +211,18 @@ class Researcher:
             try:
                 results = await self._search.search(query.query, limit=results_per_query)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("search query failed (%s): %s", query.query, exc)
+                logger.warning("search query failed (%s): %s (provider=%s)", query.query, exc, self._search.name)
                 return
             for result in results:
                 result.query = query.query
             collected.extend(results)
+            logger.info(
+                "search %r -> %d raw results (provider=%s, first=%s)",
+                query.query,
+                len(results),
+                self._search.name,
+                results[0].url if results else "none",
+            )
 
         await asyncio.gather(*(run_one(query) for query in queries))
         return collected

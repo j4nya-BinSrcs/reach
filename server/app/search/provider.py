@@ -135,12 +135,15 @@ def build_search_provider(
       results.
     """
     if mock_mode == "mock":
+        logger.info("search provider: mock (offline, test/demo mode)")
         return MockSearchProvider(results_per_query=results_per_query)
     known = {"tavily", "web", "keyless", "auto"}
     if provider_name not in known:
         raise ValueError(f"unknown search provider: {provider_name!r}")
     if provider_name == "tavily" and api_key:
+        logger.info("search provider: tavily (live API, %d results/query)", results_per_query)
         return TavilySearchProvider(api_key=api_key)
     if provider_name == "tavily":
         logger.warning("tavily requested but no API key configured; falling back to keyless web search")
+    logger.info("search provider: keyless web search (DuckDuckGo/Wikipedia/arXiv/GitHub/Crossref/StackExchange/HN/Reddit)")
     return WebSearchProvider()

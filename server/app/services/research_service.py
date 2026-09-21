@@ -253,13 +253,24 @@ class ResearchService:
             timeout_seconds=settings.fetch_timeout_seconds,
             transport=transport,
         )
+        logger.info(
+            "PIPELINE start session=%s mock=%r llm=%s search=%s db=%s objective=%r",
+            session_id[:8],
+            settings.mock_mode,
+            llm.name,
+            search.name,
+            settings.database_absolute_path,
+            objective[:60],
+        )
 
         # PLANNING
+        logger.info("PIPELINE stage planning session=%s", session_id[:8])
         await self._set(session_id, SessionStatus.PLANNING)
         queries = await Planner(llm=llm, max_queries=settings.search_max_queries).plan(objective)
         await asyncio.to_thread(self._sessions.add_queries, session_id, [query.query for query in queries])
 
         # SEARCH + FILTER
+        logger.info("PIPELINE stage searching session=%s queries=%d", session_id[:8], len(queries))
         await self._set(session_id, SessionStatus.SEARCHING)
         researcher = Researcher(search=search, llm=llm, fetcher=fetcher)
         selected, stats = await researcher.discover(
@@ -269,16 +280,21 @@ class ResearchService:
         await asyncio.to_thread(self._persist_selected, session_id, selected)
 
         # FETCH
+        logger.info("PIPELINE stage fetching session=%s sources=%d", session_id[:8], len(selected))
         await self._set(session_id, SessionStatus.FETCHING)
         await researcher.fetch_sources(selected, objective)
         await asyncio.to_thread(self._persist_fetch_updates, selected)
 
         # ANALYZE
+        logger.info("PIPELINE stage analyzing session=%s sources=%d", session_id[:8], len(selected))
         await self._set(session_id, SessionStatus.ANALYZING)
         await researcher.analyze_sources(selected, objective)
         await asyncio.to_thread(self._persist_analyses, selected)
+        analyzed = sum(1 for s in selected if s.analysis and s.analysis.summary)
+        logger.info("PIPELINE analysis done session=%s with_summaries=%d/%d", session_id[:8], analyzed, len(selected))
 
         # SYNTHESIZE
+        logger.info("PIPELINE stage synthesizing session=%s", session_id[:8])
         await self._set(session_id, SessionStatus.SYNTHESIZING)
         sources_with_ids = self._sources.get_sources(session_id)
         findings, gaps, synthesis = await Synthesizer(llm=llm).synthesize(objective, sources_with_ids)

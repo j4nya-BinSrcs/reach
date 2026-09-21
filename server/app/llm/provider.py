@@ -574,7 +574,10 @@ def build_llm_provider(
     from app.llm.resilient import ResilientLLMProvider
 
     if mock_mode == "mock":
+        logger.info("LLM provider: mock (offline, test/demo mode)")
         return MockLLMProvider()
     if api_key:
+        logger.info("LLM provider: openai-compatible live model %r with resilient content-grounded fallback", model)
         return ResilientLLMProvider(OpenAICompatibleProvider(api_key=api_key, model=model, base_url=base_url))
+    logger.info("LLM provider: extractive (keyless, grounded in fetched material)")
     return build_extractive_provider()

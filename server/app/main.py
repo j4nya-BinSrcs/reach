@@ -1,5 +1,7 @@
 """FastAPI application entrypoint for the REACH backend."""
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,6 +9,12 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.research import router as research_router
 from app.config import Settings, settings
 from app.services.research_service import ResearchService
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 _default_settings = settings
 
