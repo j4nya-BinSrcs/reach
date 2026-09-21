@@ -12,8 +12,8 @@ questions, all traceable back to their original sources.
 - Pydantic v2 (typed schemas + validated LLM output)
 - SQLite (lightweight, per-session persistence)
 - httpx + BeautifulSoup4 (bounded source fetching/parsing)
-- LLM provider (OpenAI-compatible, keyless extractive, or mock) + search
-  provider (keyless web aggregator, Tavily, or mock) — all swappable
+- LLM provider (OpenAI-compatible live, with keyless extractive fallback) +
+  search provider (Tavily, or the keyless web aggregator) — all swappable
 
 ## Quick start
 
@@ -25,18 +25,13 @@ cp .env.example .env      # add real keys (optional)
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
-With no keys at all, the default keyless mode runs **real** research: the
-web search provider pulls live results from public endpoints (DuckDuckGo,
-Wikipedia, arXiv, Crossref, GitHub, StackExchange, Hacker News, Reddit) and
-the extractive provider analyzes the actual fetched content. For a fully
-hermetic, deterministic pipeline instead (demo/CI, no network):
-
-```bash
-REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --port 8000
-```
-
-With API keys set, the OpenAI-compatible LLM and Tavily search providers are
-used for higher-quality live analysis.
+Research is always real — there is no mock mode. With no keys at all, the
+keyless providers handle the run: the web search provider pulls live results
+from public endpoints (DuckDuckGo, Wikipedia, arXiv, Crossref, GitHub,
+StackExchange, Hacker News, Reddit) and the extractive provider analyzes the
+actual fetched content. With API keys set, the OpenAI-compatible LLM and
+Tavily search providers run live, and the resilient LLM layer falls back to
+content-grounded extraction if the live model is rate-limited or fails.
 
 ## Configuration
 
@@ -53,7 +48,6 @@ from environment variables with the `REACH_` prefix (see
 | `REACH_SEARCH_PROVIDER` | `tavily` (default) |
 | `REACH_SEARCH_RESULTS_PER_QUERY` | Results per generated query |
 | `REACH_SEARCH_MAX_QUERIES` | Upper bound on generated queries |
-| `REACH_MOCK_MODE` | `off` (default) · `mock` for hermetic demo/testing |
 | `REACH_DATABASE_PATH` | SQLite file path |
 | `REACH_FETCH_MAX_BYTES` | Body size cap per fetched source |
 | `REACH_FETCH_TIMEOUT_SECONDS` | Per-fetch timeout |
@@ -101,11 +95,12 @@ operations run on demand against the completed session.
 .venv/bin/python -m pytest -q
 ```
 
-The suite (160 tests) covers model validation, storage, URL normalization,
+The suite covers model validation, storage, URL normalization,
 deduplication, source classification, parsing, bounded fetching, the LLM
-layer's retry/validation behavior, the planner, researcher, synthesizer,
-comparator, report writer, workspace operations, and the full API workflow
-in mock mode.
+layer's retry/validation/resilience behavior, the planner, researcher,
+synthesizer, comparator, report writer, workspace operations, and the full
+API workflow — hermetic via keyless extractive providers and scripted test
+doubles, never against paid APIs.
 
 ## Project layout
 
@@ -115,14 +110,14 @@ server/
 │   ├── agent/       planner, researcher, synthesizer, comparator, report writer
 │   ├── api/routes/  research endpoints
 │   ├── llm/         provider abstraction, providers, centralized prompts
-│   ├── search/      provider abstraction, keyless web, Tavily/mock, URL utilities
+│   ├── search/      provider abstraction, keyless web + Tavily, URL utilities
 │   ├── sources/     classifier, fetcher, parser, analyzer, extractor
 │   ├── models/      Pydantic domain + schema models
 │   ├── services/    research service (pipeline + workspace operations)
 │   ├── storage/     SQLite schema (+migrations) + repositories
 │   ├── config.py    settings (REACH_* env)
 │   └── main.py      application factory
-├── tests/           160 pytest tests
+├── tests/            pytest tests
 ├── requirements.txt / requirements-dev.txt
 └── .env.example
 ```
@@ -130,8 +125,7 @@ server/
 ## Known limitations
 
 - Real LLM analysis needs an API key; keyless search + extractive analysis
-  still produce real, source-grounded research without any keys (mock mode
-  is for deterministic demo/CI).
+  still produce real, source-grounded research without any keys.
 - Fetching is HTML/plain-text only; JavaScript-heavy pages and many PDFs
   yield thin or unavailable content (the session degrades gracefully).
 - Sessions are ephemeral local SQLite rows — no cross-session knowledge

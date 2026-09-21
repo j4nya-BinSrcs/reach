@@ -1,11 +1,10 @@
 """Resilient LLM wrapper: live provider with a content-grounded fallback.
 
-Wraps a primary :class:`LLMProvider` (OpenAI-compatible, Tavily-backed runs)
-so that if the live model repeatedly fails (rate limits, outages, bad
-responses) the pipeline still produces **real** output: the extractive
-provider re-analyzes the actual fetched material embedded in the same
-prompt. Nothing is ever replaced with canned/mock prose — only with
-deterministic extraction of the real content the system already fetched.
+Wraps a primary :class:`LLMProvider` (OpenAI-compatible) so that if the live
+model repeatedly fails (rate limits, outages, bad responses) the pipeline
+still produces **real** output: the extractive provider re-analyzes the
+actual fetched material embedded in the same prompt. Output is always
+derived from the real content the system fetched — never fabricated.
 """
 
 import logging

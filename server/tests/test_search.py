@@ -1,10 +1,11 @@
-"""Search layer tests: normalization, deduplication, and the mock provider."""
+"""Search layer tests: normalization, deduplication, and real provider resolution."""
 
 import pytest
 
 from app.search.models import SearchResult
-from app.search.provider import MockSearchProvider, build_search_provider
+from app.search.provider import WebSearchProvider, build_search_provider
 from app.search.utils import dedupe_results, extract_domain, normalize_url
+from tests._doubles import ScriptedSearchProvider
 
 
 class TestNormalizeUrl:
@@ -68,10 +69,10 @@ class TestDedupeResults:
         assert len(dedupe_results(results)) == 2
 
 
-class TestMockProvider:
+class TestScriptedProvider:
     @pytest.mark.asyncio
     async def test_returns_bounded_normalized_results(self) -> None:
-        provider = MockSearchProvider(results_per_query=8)
+        provider = ScriptedSearchProvider(results_per_query=8)
         results = await provider.search("rust privacy search engine", limit=10)
         assert len(results) == 8
         assert all(isinstance(result, SearchResult) for result in results)
@@ -81,15 +82,16 @@ class TestMockProvider:
 
     @pytest.mark.asyncio
     async def test_respects_limit(self) -> None:
-        provider = MockSearchProvider(results_per_query=8)
+        provider = ScriptedSearchProvider(results_per_query=8)
         results = await provider.search("x", limit=3)
         assert len(results) == 3
 
 
-class TestBuildProvider:
-    def test_mock_mode_forces_mock(self) -> None:
-        provider = build_search_provider("tavily", api_key="", mock_mode="mock")
-        assert isinstance(provider, MockSearchProvider)
+class TestKeylessProvider:
+    def test_builds_keyless_web_provider_without_key(self) -> None:
+        provider = build_search_provider("tavily", api_key="")
+        assert isinstance(provider, WebSearchProvider)
+        assert provider.name == "web"
 
     def test_unknown_provider_raises(self) -> None:
         with pytest.raises(ValueError):

@@ -42,10 +42,10 @@ def objective() -> str:
 
 class TestPlanner:
     @pytest.mark.asyncio
-    async def test_uses_mock_provider(self, objective: str) -> None:
-        from app.llm.provider import MockLLMProvider
+    async def test_keyless_provider_generates_queries(self, objective: str) -> None:
+        from app.llm.provider import build_llm_provider
 
-        planner = Planner(llm=MockLLMProvider())
+        planner = Planner(llm=build_llm_provider(api_key="", model="gpt-4o-mini"))
         queries = await planner.plan(objective)
         assert 5 <= len(queries) <= planner.DEFAULT_MAX_QUERIES
         assert all(query.query.strip() for query in queries)
@@ -86,18 +86,18 @@ class TestPlanner:
 
     @pytest.mark.asyncio
     async def test_dimension_labels_are_assigned(self, objective: str) -> None:
-        from app.llm.provider import MockLLMProvider
+        from app.llm.provider import build_llm_provider
 
-        queries = await Planner(llm=MockLLMProvider()).plan(objective)
+        queries = await Planner(llm=build_llm_provider(api_key="", model="gpt-4o-mini")).plan(objective)
         labels = {query.dimension for query in queries}
         assert "core concept" in labels
         assert "benchmarks and performance" in labels
 
     @pytest.mark.asyncio
-    async def test_mock_queries_fit_a_humanities_objective(self) -> None:
-        from app.llm.provider import MockLLMProvider
+    async def test_keyless_queries_fit_a_humanities_objective(self) -> None:
+        from app.llm.provider import build_llm_provider
 
-        queries = await Planner(llm=MockLLMProvider()).plan("Study the origin of coffee")
+        queries = await Planner(llm=build_llm_provider(api_key="", model="gpt-4o-mini")).plan("Study the origin of coffee")
         text = " | ".join(query.query.lower() for query in queries)
         assert "coffee" in text
         assert "scholarship" in text or "academic" in text

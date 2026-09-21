@@ -6,7 +6,6 @@ re-fetching the same URL within one research session.
 """
 
 import logging
-import re
 from dataclasses import dataclass
 
 import httpx
@@ -113,25 +112,3 @@ class SourceFetcher:
     def _allowed_scheme(url: str) -> bool:
         scheme = url.split(":", 1)[0].lower()
         return scheme in {"http", "https"}
-
-    @staticmethod
-    def mock_transport() -> httpx.MockTransport:
-        """A transport serving tiny deterministic pages, used in mock mode."""
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            host = request.url.host or "example.com"
-            raw_slug = request.url.path.strip("/").rsplit("/", 1)[-1] or host
-            slug = re.sub(r"^\d+-", "", raw_slug).rstrip("-").replace("-", " ").strip()
-            title = slug or host
-            body = (
-                "<!doctype html><html><head><title>"
-                f"{title} — overview"
-                "</title></head><body>"
-                "<p>This document covers the subject named in its title: background, context, and "
-                f"the main points of interest related to the research objective ({host}).</p>"
-                f"<p>It notes key references, primary sources, and open questions for further study at {host}.</p>"
-                "</body></html>"
-            )
-            return httpx.Response(200, headers={"Content-Type": "text/html"}, content=body, request=request)
-
-        return httpx.MockTransport(handler)

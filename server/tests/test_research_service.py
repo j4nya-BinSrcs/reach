@@ -6,12 +6,25 @@ from pathlib import Path
 import pytest
 
 from app.config import Settings
+from app.llm.extractive import ExtractiveLLMProvider
 from app.models.research import ProgressUpdate, SessionStatus
 from app.services.research_service import ResearchService
+from tests._doubles import ScriptedSearchProvider, scripted_fetcher
+
+
+@pytest.fixture(autouse=True)
+def _patch_pipeline(monkeypatch) -> None:
+    """Route search and fetching to hermetic doubles; LLM is keyless extractive."""
+    monkeypatch.setattr("app.services.research_service.build_llm_provider", lambda **kw: ExtractiveLLMProvider())
+    monkeypatch.setattr("app.services.research_service.build_search_provider", lambda **kw: ScriptedSearchProvider())
+    monkeypatch.setattr(
+        "app.services.research_service.SourceFetcher",
+        lambda max_bytes=300_000, timeout_seconds=15.0, **kw: scripted_fetcher(max_bytes, timeout_seconds),
+    )
 
 
 def _service(db_path: Path, **overrides) -> ResearchService:
-    defaults = dict(mock_mode="mock", search_max_queries=4)
+    defaults = dict(search_max_queries=4)
     defaults.update(overrides)
     settings = Settings(database_path=str(db_path), **defaults)
     return ResearchService(settings)
@@ -51,7 +64,7 @@ class TestResearchService:
         assert service.get_detail("missing") is None
 
     @pytest.mark.asyncio
-    async def test_mock_run_completes_and_persists(self, tmp_path: Path) -> None:
+    async def test_keyless_run_completes_and_persists(self, tmp_path: Path) -> None:
         service = _service(tmp_path / "d.db")
         session = await service.start(OBJECTIVE)
         status = await _wait_for_terminal(service, session.id)
@@ -85,7 +98,7 @@ class TestResearchService:
             raise LLMError("provider config rejected")
 
         monkeypatch.setattr("app.services.research_service.build_llm_provider", _boom)
-        service = _service(tmp_path / "f.db", mock_mode="off")
+        service = _service(tmp_path / "f.db")
         session = await service.start(OBJECTIVE)
         status = await _wait_for_terminal(service, session.id, timeout=15.0)
         assert status is SessionStatus.FAILED

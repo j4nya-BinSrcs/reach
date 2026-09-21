@@ -29,9 +29,6 @@ class Settings(BaseSettings):
     search_results_per_query: int = 10
     search_max_queries: int = 7
 
-    # Mock mode allows running without external keys for testing/demo.
-    mock_mode: str = "off"
-
     # Database
     database_path: str = "../data/reach.db"
 

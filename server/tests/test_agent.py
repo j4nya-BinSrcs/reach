@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.agent.researcher import Researcher, SourceSelector
-from app.llm.provider import MockLLMProvider
+from app.llm.extractive import ExtractiveLLMProvider
 from app.models.source import Source, SourceFetchStatus, SourceType
 from app.search.base import SearchProvider
 from app.search.models import SearchQuery, SearchResult
@@ -85,7 +85,7 @@ class TestSourceSelector:
 class TestResearcher:
     def _researcher(self, search: SearchProvider, transport) -> Researcher:
         fetcher = SourceFetcher(transport=transport)
-        return Researcher(search=search, llm=MockLLMProvider(), fetcher=fetcher, concurrency=4)
+        return Researcher(search=search, llm=ExtractiveLLMProvider(), fetcher=fetcher, concurrency=4)
 
     @pytest.mark.asyncio
     async def test_discovery_dedupes_and_selects(self) -> None:
@@ -135,7 +135,7 @@ class TestResearcher:
             return httpx.Response(
                 200,
                 headers={"Content-Type": "text/html"},
-                content="<html><head><title>Doc Title</title></head><body><p>Rust indexing body content</p></body></html>",
+                content="<html><head><title>Doc Title</title></head><body><p>Rust indexing is the objective for fast full-text search. Tantivy and quickwit-oss deliver high throughput with async runtimes.</p></body></html>",
                 request=request,
             )
 
@@ -168,7 +168,7 @@ class TestSourceAnalyzer:
     async def test_empty_source_yields_notice(self) -> None:
         from app.sources.analyzer import SourceAnalyzer
 
-        analyzer = SourceAnalyzer(MockLLMProvider())
+        analyzer = SourceAnalyzer(ExtractiveLLMProvider())
         source = Source(session_id="s", url="https://example.com/empty", content="")
         analysis = await analyzer.analyze(source, "objective")
         assert analysis is not None

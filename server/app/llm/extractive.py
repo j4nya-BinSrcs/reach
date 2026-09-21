@@ -173,7 +173,10 @@ def _field_after(text: str, label: str, default: str = "") -> str:
     if label not in text:
         return default
     chunk = text.split(label, 1)[1]
-    return chunk.splitlines()[0].strip()
+    lines = chunk.splitlines()
+    if not lines:
+        return default
+    return lines[0].strip()
 
 
 def _bullet_lines(text: str, label: str, default: list[str] | None = None) -> list[str]:

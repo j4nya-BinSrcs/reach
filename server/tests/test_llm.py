@@ -1,9 +1,11 @@
-"""LLM layer tests: parsing, validation, retry behavior, and the mock provider."""
+"""LLM layer tests: parsing, validation, retry behavior, and keyless extractive generation."""
 
 import pytest
 from pydantic import BaseModel, Field
 
 from app.llm.base import LLMProvider, StructuredOutputError, parse_structured_output, strip_code_fences
+from app.llm.extractive import ExtractiveLLMProvider
+from app.llm.provider import build_llm_provider
 
 
 class QueryPlan(BaseModel):
@@ -75,33 +77,33 @@ class TestGenerateStructured:
         assert provider.calls == 2
 
 
-class TestMockProvider:
+class TestKeylessProvider:
     @pytest.mark.asyncio
     async def test_structured_builds_query_plan(self) -> None:
-        from app.llm.provider import MockLLMProvider
-
-        provider = MockLLMProvider()
-        plan = await provider.generate_structured("", "Build a privacy-focused search engine in Rust", QueryPlan)
-        assert 5 <= len(plan.queries) <= 7
+        provider = ExtractiveLLMProvider()
+        plan = await provider.generate_structured("", "RESEARCH OBJECTIVE\nBuild a privacy-focused search engine in Rust", QueryPlan)
+        assert 3 <= len(plan.queries) <= 7
         assert all(isinstance(q, str) for q in plan.queries)
 
     @pytest.mark.asyncio
     async def test_structured_builds_source_analysis(self) -> None:
         from app.models.source import SourceAnalysis
-        from app.llm.provider import MockLLMProvider
 
-        provider = MockLLMProvider()
-        analysis = await provider.generate_structured("", "obj", SourceAnalysis)
+        provider = ExtractiveLLMProvider()
+        user = (
+            "RESEARCH OBJECTIVE\nobj\n"
+            "SOURCE CONTENT\n"
+            "Inverted indexes allow fast full-text lookup. Tantivy and quickwit-oss "
+            "implement them in Rust, offering high throughput."
+        )
+        analysis = await provider.generate_structured("", user, SourceAnalysis)
         assert isinstance(analysis, SourceAnalysis)
         assert analysis.summary
         assert analysis.key_points
 
     @pytest.mark.asyncio
     async def test_keyless_run_uses_extractive_provider(self) -> None:
-        from app.llm.extractive import ExtractiveLLMProvider
-        from app.llm.provider import build_llm_provider
-
-        provider = build_llm_provider(api_key="", model="gpt-4o-mini", mock_mode="off")
+        provider = build_llm_provider(api_key="", model="gpt-4o-mini")
         assert isinstance(provider, ExtractiveLLMProvider)
         plan = await provider.generate_structured("", "RESEARCH OBJECTIVE\nBuild a search engine in Rust", QueryPlan)
         assert 3 <= len(plan.queries) <= 7

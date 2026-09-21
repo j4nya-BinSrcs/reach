@@ -95,8 +95,8 @@ reach/
 - **Comparison history** — past pairwise comparisons are persisted and
   rendered with their source titles.
 - **Keyless by default** — real search from public endpoints and real
-  extractive analysis of fetched content with zero API keys; mock mode
-  additionally runs the whole pipeline hermetically for demo/CI.
+  extractive analysis of fetched content with zero API keys; with keys set,
+  live Tavily + a resilient OpenAI-compatible LLM power the run.
 
 ## Project structure
 
@@ -117,14 +117,14 @@ server/
 │   ├── agent/        planner · researcher · synthesizer · comparator · report writer
 │   ├── api/routes/    research endpoints
 │   ├── llm/          provider abstraction · providers · prompts
-│   ├── search/        provider abstraction · keyless web · Tavily · mock
+│   ├── search/        provider abstraction · keyless web + Tavily
 │   ├── sources/       classifier · fetcher · parser · analyzer · extractor
 │   ├── models/        Pydantic domain + schema models
 │   ├── services/      research service orchestrator
 │   ├── storage/        SQLite schema + repositories
 │   ├── config.py       settings (REACH_* env)
 │   └── main.py         app factory
-├── tests/             160 tests, hermetic
+├── tests/             hermetic pytest tests
 └── README.md          server README
 ```
 
@@ -152,8 +152,9 @@ cp .env.example .env                       # add keys for real research (optiona
 
 Or use the launcher: `./scripts/dev.sh server`.
 
-**One command tests the whole product** — the launch script boots the
-server (mock mode), builds and serves the client app, then smoke-tests the
+**One command tests the whole product** — the launch script boots the real
+server (respawning it against a throwaway DB for a hermetic smoke run, then
+the product DB), builds and serves the client app, and smoke-tests the
 complete API contract end to end (research run → report → comparison →
 workspace → summarize):
 
@@ -180,16 +181,16 @@ make test-e2e                              # equivalent to RUN_E2E=1 ./scripts/l
 | `POST` | `/api/research/{id}/sources/{sid}/summarize` | On-demand source summary |
 | `GET` | `/api/health` | Health check |
 
-## Configuration: mock mode vs. keyless vs. real keys
+## Configuration: keyless vs. real keys
 
 All secrets and options use the `REACH_` prefix; see
 [`server/.env.example`](server/.env.example). Real keys are never
-committed.
+committed. There is no mock mode — every run is real.
 
 ### Keyless mode (default — real research, no keys)
 
-With no API keys configured at all (`REACH_MOCK_MODE` unset or `off`, the
-default), REACH still runs **real** research:
+With no API keys configured (the default), REACH still runs **real**
+research:
 
 - the keyless `WebSearchProvider` aggregates live results from public
   endpoints — DuckDuckGo, Wikipedia, arXiv, Crossref, GitHub, StackExchange,
@@ -204,17 +205,6 @@ This is a great zero-setup first run:
 ```bash
 cd server
 .venv/bin/uvicorn app.main:app --port 8000
-```
-
-### Mock mode (hermetic demo/CI)
-
-Set `REACH_MOCK_MODE=mock` and the whole pipeline executes hermetically (no
-LLM, no search, no network) with deterministic mock providers. This is what
-`scripts/launch.sh` and the test suite use, so the API smoke test and the
-browser E2E run keylessly and deterministically:
-
-```bash
-REACH_MOCK_MODE=mock .venv/bin/uvicorn app.main:app --port 8000
 ```
 
 ### Real keys (live LLM + Tavily search)
@@ -241,9 +231,10 @@ pipeline supports two live providers:
    REACH_SEARCH_PROVIDER=tavily
    ```
 
-With either key set, `REACH_MOCK_MODE` must stay `off` (default); research
-runs use the live providers. No frontend configuration is required — the UI
-calls the backend exclusively, so it is identical across all three modes.
+With keys set, research runs use the live providers (and the resilient LLM
+layer falls back to content-grounded extraction if the live model is
+rate-limited or fails). No frontend configuration is required — the UI
+calls the backend exclusively, so it is identical with or without keys.
 
 ## Example research session
 
@@ -268,17 +259,15 @@ one (`POST /api/research/{id}/sources/{sid}/summarize`), or compare two
 (`POST /api/research/{id}/compare`).
 
 Or run it all at once, GUI included, with `./scripts/launch.sh` — a
-self-contained test launcher that boots a fresh demo database, builds and
-serves the web app, verifies the whole product contract, and shuts
-everything down with no leftover processes. (It uses hermetic mock mode for
-determinism; for persistent live research use `make dev` or the keyless
-default instead.)
+self-contained launcher that smoke-tests the full product contract against a
+throwaway database, then serves the real product against `data/reach.db`
+with no leftover processes left behind. For persistent live research with
+keys, use `make dev` or the keyless default instead.
 
 ## Limitations
 
 - Real live LLM analysis needs an API key (Tavily is optional — keyless
-  search and keyless extractive analysis work without any keys); mock mode
-  is for deterministic demo/CI only.
+  search and keyless extractive analysis work without any keys).
 - HTML/plain-text fetching — JS-heavy pages and many PDFs degrade to thin
   or unavailable content (surfaced per source).
 - Sessions are ephemeral and local; no cross-session knowledge graph,

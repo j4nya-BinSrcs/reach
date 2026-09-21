@@ -4,7 +4,7 @@ import pytest
 
 from app.agent.synthesizer import Synthesizer
 from app.llm.base import LLMProvider
-from app.llm.provider import MockLLMProvider
+from app.llm.extractive import ExtractiveLLMProvider
 from app.models.finding import SynthesisResult
 from app.models.source import Source, SourceAnalysis
 
@@ -55,9 +55,9 @@ def _source(source_id: int, title: str, summary: str = "Analysis summary") -> So
 
 class TestSynthesizer:
     @pytest.mark.asyncio
-    async def test_mock_provider_produces_records(self) -> None:
+    async def test_keyless_provider_produces_records(self) -> None:
         sources = [_source(1, "Tantivy"), _source(2, "Arxiv Paper")]
-        synthesizer = Synthesizer(llm=MockLLMProvider())
+        synthesizer = Synthesizer(llm=ExtractiveLLMProvider())
         findings, gaps, synthesis = await synthesizer.synthesize("privacy rust search engine", sources)
         assert isinstance(synthesis, object)
         assert len(findings) > 0 or synthesis.overview

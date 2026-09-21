@@ -1,7 +1,10 @@
 """API integration tests for the research workflow.
 
-Runs against a FastAPI app built with mock settings: mock LLM, mock search,
-and a mock fetch transport, so the whole pipeline executes hermetically.
+Runs against a FastAPI app exercising the real pipeline: keyless
+extractive analysis plus deterministic scripted search and fetching,
+so the full workflow executes hermetically without any API keys or
+mock providers.
+
 """
 
 import time
@@ -15,9 +18,17 @@ from app.main import create_app
 
 
 @pytest.fixture()
-def client(tmp_path: Path) -> TestClient:
+def client(tmp_path: Path, monkeypatch) -> TestClient:
+    from app.llm.extractive import ExtractiveLLMProvider
+    from tests._doubles import ScriptedSearchProvider, scripted_fetcher
+
+    monkeypatch.setattr("app.services.research_service.build_llm_provider", lambda **kw: ExtractiveLLMProvider())
+    monkeypatch.setattr("app.services.research_service.build_search_provider", lambda **kw: ScriptedSearchProvider())
+    monkeypatch.setattr(
+        "app.services.research_service.SourceFetcher",
+        lambda max_bytes=300_000, timeout_seconds=15.0, **kw: scripted_fetcher(max_bytes, timeout_seconds),
+    )
     settings = Settings(
-        mock_mode="mock",
         database_path=str(tmp_path / "reach-api.db"),
         search_max_queries=5,
         search_results_per_query=4,
@@ -62,7 +73,7 @@ class TestResearchLifecycle:
         assert client.get("/api/research/nope").status_code == 404
 
     def _wait_for_completion(self, client: TestClient, session_id: str) -> str:
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             update = client.get(f"/api/research/{session_id}/status").json()
             if update["status"] in {"complete", "failed"}:
@@ -88,7 +99,7 @@ class TestResearchLifecycle:
         assert len(detail["gaps"]) >= 1
 
     def test_workflow_records_partial_failures_generously(self, client: TestClient) -> None:
-        """Mock transport always succeeds; verify fetch_status bookkeeping."""
+        """Scripted transport always returns fetched; verify fetch_status bookkeeping."""
         session_id = self._session_id(client)
         final_status = self._wait_for_completion(client, session_id)
         assert final_status == "complete"
@@ -104,7 +115,7 @@ class TestCompareSources:
         response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
         assert response.status_code == 201
         session_id = response.json()["session_id"]
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             update = client.get(f"/api/research/{session_id}/status").json()
             if update["status"] in {"complete", "failed"}:
@@ -116,7 +127,7 @@ class TestCompareSources:
     def test_compare_two_sources(self, client: TestClient) -> None:
         session_id, sources = self._completed_session(client)
         if len(sources) < 2:
-            pytest.skip("mock run surfaced fewer than two sources")
+            pytest.skip("scripted run surfaced fewer than two sources")
         a, b = sources[0]["id"], sources[1]["id"]
         response = client.post(f"/api/research/{session_id}/compare", json={"source_a_id": a, "source_b_id": b})
         assert response.status_code == 200
@@ -141,7 +152,7 @@ class TestReport:
         response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
         assert response.status_code == 201
         session_id = response.json()["session_id"]
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             update = client.get(f"/api/research/{session_id}/status").json()
             if update["status"] in {"complete", "failed"}:
@@ -179,7 +190,7 @@ class TestResearchHistory:
     def test_list_includes_counts_after_completion(self, client: TestClient) -> None:
         response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
         session_id = response.json()["session_id"]
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             update = client.get(f"/api/research/{session_id}/status").json()
             if update["status"] in {"complete", "failed"}:
@@ -195,7 +206,7 @@ class TestResearchHistory:
     def test_list_filters_complete_status(self, client: TestClient) -> None:
         response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
         session_id = response.json()["session_id"]
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             update = client.get(f"/api/research/{session_id}/status").json()
             if update["status"] in {"complete", "failed"}:
@@ -212,7 +223,7 @@ class TestWorkspace:
         response = client.post("/api/research", json={"objective": "Build a privacy-focused search engine using Rust"})
         assert response.status_code == 201
         session_id = response.json()["session_id"]
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             update = client.get(f"/api/research/{session_id}/status").json()
             if update["status"] in {"complete", "failed"}:
@@ -230,7 +241,7 @@ class TestWorkspace:
     def test_star_save_tag_note_then_filters(self, client: TestClient) -> None:
         session_id, sources = self._completed_session(client)
         if not sources:
-            pytest.skip("mock run surfaced no sources")
+            pytest.skip("scripted run surfaced no sources")
         source_id = sources[0]["id"]
         response = client.patch(
             f"/api/research/{session_id}/sources/{source_id}",
@@ -266,7 +277,7 @@ class TestWorkspace:
     def test_workspace_filter_by_tag(self, client: TestClient) -> None:
         session_id, sources = self._completed_session(client)
         if not sources:
-            pytest.skip("mock run surfaced no sources")
+            pytest.skip("scripted run surfaced no sources")
         source_id = sources[0]["id"]
         client.patch(
             f"/api/research/{session_id}/sources/{source_id}",
@@ -283,7 +294,7 @@ class TestWorkspace:
     def test_summarize_single_source(self, client: TestClient) -> None:
         session_id, sources = self._completed_session(client)
         if not sources:
-            pytest.skip("mock run surfaced no sources")
+            pytest.skip("scripted run surfaced no sources")
         source_id = sources[0]["id"]
         response = client.post(f"/api/research/{session_id}/sources/{source_id}/summarize")
         assert response.status_code == 200

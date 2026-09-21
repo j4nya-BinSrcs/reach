@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 # REACH — single-command product launcher + end-to-end smoke test.
 #
-# Starts the server (mock mode), serves the built client, then verifies
-# the complete product contract: regular research run, markdown report,
-# source comparison, workspace marking, and single-source summarization.
+# Starts the server with the real research pipeline (keyless extractive
+# fallback works with no keys; Tavily + live LLM when keys are configured),
+# serves the built client, then verifies the complete product contract:
+# regular research run, markdown report, source comparison, workspace
+# marking, and single-source summarization. No mock providers exist anymore —
+# every result is grounded in real fetched web material.
 #
 # Usage:
 #   ./scripts/launch.sh                # full launch + smoke test
 #   REACH_SERVER_ONLY=1 ./scripts/launch.sh   # server API smoke test only
 #   RUN_E2E=1 ./scripts/launch.sh              # + browser E2E, then shut down
 #
-# Every run uses a throwaway database and a freshly built client bundle, and
-# shuts down every server it starts (including via process groups) so no
-# stale REACH process is ever left behind.
+# The smoke run uses a throwaway database so it never pollutes the product
+# DB; once it passes, the real server is restarted against data/reach.db and
+# stays up for interactive use. Everything the script starts is shut down on
+# exit (including via process groups) so no stale REACH process is left.
 
 set -euo pipefail
 
@@ -42,9 +46,9 @@ if [ ! -x "$SERVER/.venv/bin/python" ]; then
   "$SERVER/.venv/bin/pip" install -q -r "$SERVER/requirements.txt"
 fi
 
-# ── 2. Throwaway database for this run ────────────────────
-# Verification runs never touch (or wipe) the developer's real
-# data/reach.db; each run gets a fresh temp DB that is deleted on exit.
+# ── 2. Throwaway database for the smoke run ────────────────
+# The smoke test never touches (or wipes) the developer's real
+# data/reach.db; it gets a fresh temp DB that is deleted on exit.
 SMOKE_DB="/tmp/reach-smoke.$$.db"
 rm -f "$SMOKE_DB" "$SMOKE_DB"-*
 cleanup() {
@@ -58,7 +62,7 @@ trap cleanup EXIT INT TERM
 
 # ── 3. Preflight: stop stale REACH servers on our ports ───
 # An interrupted run can leave an old server/client holding the ports
-# (and an old bundle/DB). Reap anything that looks like a REACH server so a
+# (and an old bundle). Reap anything that looks like a REACH server so a
 # rerun never talks to stale code.
 stop_stale() {
   local port pid
@@ -76,16 +80,16 @@ if command -v ss >/dev/null 2>&1; then stop_stale; else
   warn "ss(8) not found — skipping stale-server check"
 fi
 
-# ── 4. Start server (mock mode) ──────────────────────────
-info "Starting server on $API (mock mode)…"
+# ── 4. Start smoke server (real pipeline, throwaway DB) ───
+info "Starting smoke server on $API (real pipeline, throwaway DB)…"
 (
   cd "$SERVER"
-  exec setsid env \
-    REACH_MOCK_MODE=mock REACH_DATABASE_PATH="$SMOKE_DB" \
+  exec setsid env -u REACH_DATABASE_PATH \
+    REACH_DATABASE_PATH="$SMOKE_DB" \
     .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
     >/tmp/reach-server.log 2>&1
 ) &
-PIDS+=($!)
+SMOKE_PID=$!
 
 for _ in $(seq 1 30); do
   if curl -fsS "$API/api/health" >/dev/null 2>&1; then break; fi
@@ -124,6 +128,12 @@ t () { # t <expected_status> <label> <curl...>
   if [ "$code" = "$expected" ]; then ok "$label"; else fail "$label → HTTP $code (expected $expected)"; STATUS=1; fi
 }
 
+fatal_on_failed_run() { # curl the status; abort if the run failed
+  local st
+  st=$(curl -s "$API/api/research/$SESSION_ID/status" | python3 -c 'import sys,json;print(json.load(sys.stdin)["status"])')
+  [ "$st" = "failed" ] && { fail "research run FAILED"; exit 1; }
+}
+
 t 200 "health check"                    "$API/api/health"
 t 422 "reject malformed objective"      -X POST "$API/api/research" -H 'Content-Type: application/json' -d '{"objective":"x"}'
 
@@ -133,12 +143,15 @@ t 201 "start research session"          -X POST "$API/api/research" \
 SESSION_ID=$(python3 -c 'import json;s=json.load(open("/tmp/reach-body.json"));print(s["session_id"])')
 ok "session id = $SESSION_ID"
 
-info "waiting for research to complete…"
-for _ in $(seq 1 60); do
+# A real research run searches the live web, fetches pages, and analyzes
+# them; give it generous time (rate-limited live models fall back to the
+# content-grounded extractive provider, so runs still complete).
+info "waiting for research to complete — this can take several minutes…"
+for _ in $(seq 1 600); do
   st=$(curl -s "$API/api/research/$SESSION_ID/status" | python3 -c 'import sys,json;print(json.load(sys.stdin)["status"])')
   [ "$st" = "complete" ] && break
-  [ "$st" = "failed" ]  && { fail "research run FAILED"; exit 1; }
-  sleep 0.5
+  fatal_on_failed_run
+  sleep 2
 done
 
 t 200   "session status is terminal"   "$API/api/research/$SESSION_ID/status"
@@ -180,22 +193,41 @@ fi
 
 # ── 7. Summary ───────────────────────────────────────────
 echo
-if [ "$STATUS" = "0" ]; then
-  echo -e "${GREEN}${BOLD}REACH product smoke test: ALL CHECKS PASSED${NC}"
-  echo -e "  server  : $API        (docs at $API/docs)"
-  [ "${REACH_SERVER_ONLY:-0}" != "1" ] && \
-    echo -e "  client  : http://localhost:$WEB_PORT"
-  echo
-else
+if [ "$STATUS" != "0" ]; then
   echo -e "${RED}${BOLD}REACH product smoke test: ${STATUS} check(s) failed${NC}"
   exit "$STATUS"
 fi
+echo -e "${GREEN}${BOLD}REACH product smoke test: ALL CHECKS PASSED${NC}"
 
 # In server-only (CI) mode, shut down after a successful test.
 if [ "${REACH_SERVER_ONLY:-0}" = "1" ]; then
   info "Server-only test complete; shutting down."
   exit 0
 fi
+
+# ── 8. Switch to the real server on the product DB ────────
+# The smoke DB was temporary; now serve the real product against
+# data/reach.db so interactive sessions persist.
+info "Bringing up the real server on the product database…"
+kill "$SMOKE_PID" 2>/dev/null || true
+sleep 1
+(
+  cd "$SERVER"
+  exec setsid env -u REACH_DATABASE_PATH \
+    REACH_DATABASE_PATH="$ROOT/data/reach.db" \
+    .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
+    >/tmp/reach-server.log 2>&1
+) &
+PIDS+=($!)
+for _ in $(seq 1 30); do
+  if curl -fsS "$API/api/health" >/dev/null 2>&1; then break; fi
+  sleep 0.3
+done
+curl -fsS "$API/api/health" >/dev/null 2>&1 \
+  || { fail "real server failed to start (see /tmp/reach-server.log)"; exit 1; }
+ok "real server serving on $API (docs at $API/docs)"
+[ "${REACH_SERVER_ONLY:-0}" != "1" ] && \
+  ok "client : http://localhost:$WEB_PORT"
 
 # Browser E2E mode: drive the running product through Playwright (headless
 # Chromium), then shut down regardless of the result.

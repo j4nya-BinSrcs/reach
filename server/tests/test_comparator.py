@@ -3,15 +3,15 @@
 import pytest
 
 from app.agent.comparator import SourceComparator
-from app.llm.provider import MockLLMProvider
+from app.llm.extractive import ExtractiveLLMProvider
 from app.models.finding import SourceComparisonResult
 from app.models.source import Source, SourceAnalysis
 
 
 class TestSourceComparator:
     @pytest.mark.asyncio
-    async def test_mock_compare_returns_valid_result(self) -> None:
-        comparator = SourceComparator(MockLLMProvider())
+    async def test_keyless_compare_returns_valid_result(self) -> None:
+        comparator = SourceComparator(ExtractiveLLMProvider())
         source_a = Source(
             session_id="s",
             url="https://arxiv.org/abs/1",
@@ -32,7 +32,7 @@ class TestSourceComparator:
 
     @pytest.mark.asyncio
     async def test_compare_survives_llm_failure(self) -> None:
-        class FailingLLM(MockLLMProvider):
+        class FailingLLM(ExtractiveLLMProvider):
             async def generate_structured(self, system, user, response_model, attempts=2):
                 raise RuntimeError("model down")
 

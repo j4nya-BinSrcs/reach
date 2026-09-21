@@ -3,7 +3,7 @@
 import pytest
 
 from app.agent.report_writer import ReportWriter, detect_intent
-from app.llm.provider import MockLLMProvider
+from app.llm.extractive import ExtractiveLLMProvider
 from app.models.finding import Finding, ResearchSynthesis
 from app.models.report import ReportIntent, ResearchReport
 
@@ -24,8 +24,8 @@ class TestDetectIntent:
 
 class TestReportWriter:
     @pytest.mark.asyncio
-    async def test_mock_write_renders_markdown(self) -> None:
-        writer = ReportWriter(MockLLMProvider())
+    async def test_keyless_write_renders_markdown(self) -> None:
+        writer = ReportWriter(ExtractiveLLMProvider())
         report: ResearchReport = await writer.write(
             "Build a privacy-focused search engine using Rust",
             sources=[],
@@ -38,11 +38,11 @@ class TestReportWriter:
         assert report.intent is ReportIntent.BUILD
         assert "# Research Report" in report.markdown
         assert "Build a privacy-focused search engine using Rust" in report.markdown
-        assert "Rust inverted indexes" not in report.markdown
+        assert "Rust inverted indexes" in report.markdown
 
     @pytest.mark.asyncio
-    async def test_mock_report_adapts_structure_to_objective(self) -> None:
-        writer = ReportWriter(MockLLMProvider())
+    async def test_keyless_report_adapts_structure_to_objective(self) -> None:
+        writer = ReportWriter(ExtractiveLLMProvider())
         report: ResearchReport = await writer.write(
             "Study the origin of coffee",
             sources=[],
@@ -59,7 +59,7 @@ class TestReportWriter:
 
     @pytest.mark.asyncio
     async def test_falls_back_on_llm_failure(self) -> None:
-        class FailingLLM(MockLLMProvider):
+        class FailingLLM(ExtractiveLLMProvider):
             async def generate_structured(self, system, user, response_model, attempts=2):
                 raise RuntimeError("model down")
 

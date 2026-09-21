@@ -143,7 +143,6 @@ class ResearchService:
             api_key=settings.llm_api_key,
             model=settings.llm_model,
             base_url=settings.llm_base_url,
-            mock_mode=settings.mock_mode,
         )
         try:
             result: SourceComparisonResult = await SourceComparator(llm=llm).compare(session.objective, source_a, source_b)
@@ -207,7 +206,6 @@ class ResearchService:
             api_key=settings.llm_api_key,
             model=settings.llm_model,
             base_url=settings.llm_base_url,
-            mock_mode=settings.mock_mode,
         )
         try:
             return await SourceAnalyzer(llm=llm).analyze(source, session.objective)
@@ -239,24 +237,19 @@ class ResearchService:
             api_key=settings.llm_api_key,
             model=settings.llm_model,
             base_url=settings.llm_base_url,
-            mock_mode=settings.mock_mode,
         )
         search = build_search_provider(
             provider_name=settings.search_provider,
             api_key=settings.search_api_key,
             results_per_query=settings.search_results_per_query,
-            mock_mode=settings.mock_mode,
         )
-        transport = SourceFetcher.mock_transport() if settings.mock_mode == "mock" else None
         fetcher = SourceFetcher(
             max_bytes=settings.fetch_max_bytes,
             timeout_seconds=settings.fetch_timeout_seconds,
-            transport=transport,
         )
         logger.info(
-            "PIPELINE start session=%s mock=%r llm=%s search=%s db=%s objective=%r",
+            "PIPELINE start session=%s llm=%s search=%s db=%s objective=%r",
             session_id[:8],
-            settings.mock_mode,
             llm.name,
             search.name,
             settings.database_absolute_path,
